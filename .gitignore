@@ -1,0 +1,29 @@
+# XcodeGen output (D3: track project.yml, ignore generated Xcode projects)
+*.xcodeproj/
+*.xcworkspace/
+xcuserdata/
+
+# Build output
+.build/
+build/
+DerivedData/
+*.dSYM/
+
+# macOS
+.DS_Store
+
+# Distribution output
+/dist/
+
+# Local plans and AI agent working files
+PLAN.md
+plan.md
+AGENT.md
+agent.md
+AGENTS.md
+agents.md
+CLAUDE.md
+claude.md
+/.agents/
+/.claude/
+/.codex/

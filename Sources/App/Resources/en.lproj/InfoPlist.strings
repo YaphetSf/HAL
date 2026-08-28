@@ -1,0 +1,4 @@
+/* macOS looks the input source's display name up by its identifier. */
+"CFBundleName" = "HAL";
+"CFBundleDisplayName" = "HAL";
+"com.hal.inputmethod.HAL" = "HAL";

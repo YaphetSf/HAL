@@ -1,0 +1,4 @@
+module RimeBridge {
+    header "shim.h"
+    export *
+}

@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="660" height="400" viewBox="0 0 660 400">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#fafafa"/>
+      <stop offset="1" stop-color="#eceef2"/>
+    </linearGradient>
+  </defs>
+  <rect width="660" height="400" fill="url(#bg)"/>
+  <text x="330" y="72" text-anchor="middle" fill="#202124"
+        font-family="-apple-system, BlinkMacSystemFont, sans-serif" font-size="22"
+        font-weight="600">Open HAL to install</text>
+  <path d="M330 94v42m-10-10 10 10 10-10" fill="none" stroke="#70757a"
+        stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>

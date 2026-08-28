@@ -1,0 +1,165 @@
+name: HAL
+
+options:
+  bundleIdPrefix: com.hal.inputmethod
+  createIntermediateGroups: true
+  deploymentTarget:
+    macOS: "26.0"
+  minimumXcodeGenVersion: "2.42.0"
+
+settings:
+  base:
+    SWIFT_VERSION: "6.0"
+    SWIFT_DEFAULT_ACTOR_ISOLATION: nonisolated
+    MARKETING_VERSION: "0.1.3"
+    CURRENT_PROJECT_VERSION: "2"
+    CODE_SIGN_STYLE: Manual
+    CODE_SIGN_IDENTITY: "-"
+    DEVELOPMENT_TEAM: ""
+    ENABLE_HARDENED_RUNTIME: NO
+    DEAD_CODE_STRIPPING: YES
+    ALWAYS_SEARCH_USER_PATHS: NO
+    CLANG_ENABLE_OBJC_ARC: YES
+    # RimeBridge is a module map over the vendored librime headers, not compiled sources.
+    SWIFT_INCLUDE_PATHS: $(SRCROOT)/Sources/Engine/RimeBridge
+    HEADER_SEARCH_PATHS: $(SRCROOT)/Rime/lib/include
+    LIBRARY_SEARCH_PATHS: $(SRCROOT)/Rime/lib
+
+targets:
+  HAL_input:
+    type: application
+    platform: macOS
+    sources:
+      - path: Sources
+        excludes:
+          - "App/Info.plist"
+          - "Engine/RimeBridge/**"
+          - "SettingsApp/**"
+      - path: Resources/Brand
+    dependencies:
+      - framework: Rime/lib/librime.1.dylib
+        embed: true
+        codeSign: true
+    settings:
+      base:
+        PRODUCT_NAME: HAL_input
+        PRODUCT_BUNDLE_IDENTIFIER: com.hal.inputmethod.HAL
+        INFOPLIST_FILE: Sources/App/Info.plist
+        GENERATE_INFOPLIST_FILE: NO
+        SWIFT_EMIT_LOC_STRINGS: NO
+        LD_RUNPATH_SEARCH_PATHS: "@executable_path/../Frameworks"
+    postBuildScripts:
+      - name: Embed rime-ice and librime plugins
+        basedOnDependencyAnalysis: false
+        script: |
+          set -e
+          rsync -a --delete "$SRCROOT/Rime/rime-ice/" \
+            "$TARGET_BUILD_DIR/$UNLOCALIZED_RESOURCES_FOLDER_PATH/RimeData/"
+          rsync -a --delete "$SRCROOT/Rime/lib/rime-plugins/" \
+            "$TARGET_BUILD_DIR/$FRAMEWORKS_FOLDER_PATH/rime-plugins/"
+          for plugin in "$TARGET_BUILD_DIR/$FRAMEWORKS_FOLDER_PATH/rime-plugins/"*.dylib; do
+            codesign --force --timestamp=none --sign "${EXPANDED_CODE_SIGN_IDENTITY:--}" "$plugin"
+          done
+
+  HAL:
+    type: application
+    platform: macOS
+    sources:
+      - path: Sources/Core
+      - path: Sources/Panel/CandidateView.swift
+      # The control center previews the real skin rather than a mock of it (D26).
+      - path: Sources/Panel/ModeFeedbackEffect.swift
+      - path: Sources/Panel/ModeFeedbackServeEffect.swift
+      - path: Sources/Panel/ModeFeedbackScene.swift
+      - path: Resources/Brand
+      - path: Sources/SettingsApp
+        excludes:
+          - "Resources/Info.plist"
+    settings:
+      base:
+        PRODUCT_NAME: HAL
+        PRODUCT_BUNDLE_IDENTIFIER: com.hal.inputmethod.HALSettings
+        INFOPLIST_FILE: Sources/SettingsApp/Resources/Info.plist
+        GENERATE_INFOPLIST_FILE: NO
+        SWIFT_EMIT_LOC_STRINGS: NO
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+
+  CoreTests:
+    type: bundle.unit-test
+    platform: macOS
+    sources:
+      - path: Sources/Core
+      - path: Tests/CoreTests
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.hal.inputmethod.CoreTests
+        GENERATE_INFOPLIST_FILE: YES
+
+  EngineTests:
+    type: bundle.unit-test
+    platform: macOS
+    sources:
+      - path: Sources/Core
+      - path: Sources/Engine
+        excludes:
+          - "RimeBridge/**"
+      - path: Tests/EngineTests
+    dependencies:
+      - framework: Rime/lib/librime.1.dylib
+        embed: true
+        codeSign: true
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.hal.inputmethod.EngineTests
+        GENERATE_INFOPLIST_FILE: YES
+        LD_RUNPATH_SEARCH_PATHS: "@loader_path/../Frameworks"
+    postBuildScripts:
+      - name: Embed librime plugins
+        basedOnDependencyAnalysis: false
+        script: |
+          set -e
+          rsync -a --delete "$SRCROOT/Rime/lib/rime-plugins/" \
+            "$TARGET_BUILD_DIR/$FRAMEWORKS_FOLDER_PATH/rime-plugins/"
+          for plugin in "$TARGET_BUILD_DIR/$FRAMEWORKS_FOLDER_PATH/rime-plugins/"*.dylib; do
+            codesign --force --timestamp=none --sign "${EXPANDED_CODE_SIGN_IDENTITY:--}" "$plugin"
+          done
+
+  SettingsAppTests:
+    type: bundle.unit-test
+    platform: macOS
+    sources:
+      - path: Sources/SettingsApp/HALInstaller.swift
+      - path: Tests/SettingsAppTests
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.hal.inputmethod.SettingsAppTests
+        GENERATE_INFOPLIST_FILE: YES
+
+schemes:
+  HAL:
+    build:
+      targets:
+        # Deliberately not `all`: the test action must not build the two apps. They carry the
+        # same bundle IDs as the installed copies, so a Debug build leaves extra Launch
+        # Services claimants behind and HAL can stop being resolved from ~/Library/Input
+        # Methods (D21). The test targets compile Sources/Core and Sources/Engine directly
+        # and do not depend on either app.
+        HAL_input: [run, profile, analyze, archive]
+        HAL: [run, profile, analyze, archive]
+        CoreTests: [test]
+        EngineTests: [test]
+        SettingsAppTests: [test]
+    run:
+      config: Debug
+    test:
+      config: Debug
+      targets:
+        - CoreTests
+        - EngineTests
+        - SettingsAppTests
+    profile:
+      config: Release
+    analyze:
+      config: Debug
+    archive:
+      config: Release

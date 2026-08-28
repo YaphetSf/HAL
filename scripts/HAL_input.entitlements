@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<!-- librime dlopen()s Contents/Frameworks/rime-plugins/*.dylib (lua, octagram, predict).
+	     Under the hardened runtime those loads are subject to library validation. The plugins
+	     are signed with the same Developer ID team as the app, so validation should pass on
+	     its own; this exception makes the load independent of that, because a silently missing
+	     octagram plugin degrades candidate ranking without any visible error. It is a
+	     notarization-approved runtime exception and grants no other capability. -->
+	<key>com.apple.security.cs.disable-library-validation</key>
+	<true/>
+</dict>
+</plist>
