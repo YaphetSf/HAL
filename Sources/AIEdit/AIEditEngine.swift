@@ -65,6 +65,9 @@ struct AppleEditEngine: AIEditEngine {
 /// LM Studio, Ollama, llama.cpp — including a resident server on another machine.
 struct OpenAICompatibleEditEngine: AIEditEngine {
     let settings: AIEditSettings
+    /// Injectable so tests can serve recorded responses through a URLProtocol stub
+    /// instead of the network.
+    var urlSession: URLSession = .shared
 
     struct Request: Encodable {
         struct Message: Encodable {
@@ -133,7 +136,7 @@ struct OpenAICompatibleEditEngine: AIEditEngine {
         let data: Data
         let urlResponse: URLResponse
         do {
-            (data, urlResponse) = try await URLSession.shared.data(for: request)
+            (data, urlResponse) = try await urlSession.data(for: request)
         } catch let error as URLError {
             throw AIEditError.network(error.localizedDescription)
         } catch {

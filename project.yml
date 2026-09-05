@@ -89,6 +89,7 @@ targets:
     platform: macOS
     sources:
       - path: Sources/Core
+      - path: Sources/AIEdit
       - path: Tests/CoreTests
     settings:
       base:

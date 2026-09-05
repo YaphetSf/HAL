@@ -4,6 +4,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     func applicationDidFinishLaunching(_ notification: Notification) {
         CapsLockKey.remap()
         ModeStatusItem.shared.install()
+        AIEditPanel.shared.install()
         ActiveInputSource.start()
     }
 

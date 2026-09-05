@@ -35,8 +35,8 @@ final class InputController: IMKInputController {
 
     /// IMK's "leave the document alone" marker for both range arguments.
     private static let noRange = NSRange(location: NSNotFound, length: 0)
-    /// Keeps the prototype comfortably inside the on-device model's context window while
-    /// still covering paragraphs rather than only individual words.
+    /// Caps the selection so the request stays inside the on-device model's context
+    /// window while still covering paragraphs rather than only individual words.
     private static let aiEditMaximumLength = 1_500
 
     /// The menu behind the input method's own icon, showing the same flag the menu bar item
@@ -175,11 +175,11 @@ final class InputController: IMKInputController {
 
     // MARK: - AI Editing
 
-    /// While the non-activating prototype panel is visible, IMK still owns the keystrokes.
-    /// Returning nil means "dismiss the prototype and let the ordinary HAL/client path see
-    /// this key" so starting to type never traps the user in a modal interaction.
+    /// While the AI Editing panel is visible, IMK still owns the keystrokes. Returning nil
+    /// means "dismiss the interaction and let the ordinary HAL/client path see this key", so
+    /// starting to type never traps the user in a modal interaction.
     private func handleAIEditEvent(_ event: NSEvent, client sender: Any!) -> Bool? {
-        let phase = MainActor.assumeIsolated { AIEditPanel.shared.inputPhase }
+        let phase = MainActor.assumeIsolated { AIEditController.shared.phase }
         guard case .hidden = phase else {
             if Int(event.keyCode) == kVK_Escape {
                 hideAIEdit()
@@ -201,7 +201,7 @@ final class InputController: IMKInputController {
                     hideAIEdit()
                     return nil
                 }
-                MainActor.assumeIsolated { AIEditPanel.shared.choose(action) }
+                MainActor.assumeIsolated { AIEditController.shared.select(action) }
                 return true
 
             case .result:
@@ -211,7 +211,7 @@ final class InputController: IMKInputController {
                     return nil
                 }
                 guard let replacement = MainActor.assumeIsolated({
-                    AIEditPanel.shared.replacement()
+                    AIEditController.shared.replacement()
                 }) else {
                     hideAIEdit()
                     return true
@@ -236,7 +236,7 @@ final class InputController: IMKInputController {
         let caret = Self.caretRect(client: sender)
         guard let client = sender as? IMKTextInput else {
             MainActor.assumeIsolated {
-                AIEditPanel.shared.presentFailure(
+                AIEditController.shared.fail(
                     "This field does not expose editable text to the input method.",
                     caret: caret
                 )
@@ -252,7 +252,7 @@ final class InputController: IMKInputController {
               attributedText.length == range.length,
               attributedText.string.utf16.count == range.length else {
             MainActor.assumeIsolated {
-                AIEditPanel.shared.presentFailure(
+                AIEditController.shared.fail(
                     "Select 1–\(Self.aiEditMaximumLength) editable characters first.",
                     caret: caret
                 )
@@ -265,7 +265,7 @@ final class InputController: IMKInputController {
                                                   clientID: Self.clientID(sender))
         let selectionRect = Self.selectionRect(client: client, range: range)
         MainActor.assumeIsolated {
-            AIEditPanel.shared.present(snapshot: snapshot, caret: selectionRect)
+            AIEditController.shared.begin(snapshot: snapshot, caret: selectionRect)
         }
         log.info("ai edit opened client=\(snapshot.clientID, privacy: .public) length=\(range.length)")
         return true
@@ -283,7 +283,7 @@ final class InputController: IMKInputController {
               currentText.string == replacement.snapshot.text else {
             let caret = Self.caretRect(client: sender)
             MainActor.assumeIsolated {
-                AIEditPanel.shared.presentFailure(
+                AIEditController.shared.fail(
                     "The selection changed while the model was working, so nothing was replaced.",
                     caret: caret
                 )
@@ -298,7 +298,7 @@ final class InputController: IMKInputController {
     }
 
     private func hideAIEdit() {
-        MainActor.assumeIsolated { AIEditPanel.shared.hide() }
+        MainActor.assumeIsolated { AIEditController.shared.dismiss() }
     }
 
     // MARK: - English Assist
