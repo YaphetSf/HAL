@@ -167,7 +167,7 @@ struct AppearanceSettingsView: View {
             RimeSpellerPatch.write(rules: settings.spellerRules,
                                    asciiPhrases: settings.asciiPhrases,
                                    pageSize: pageSize,
-                                   in: RimeSpellerPatch.userDirectory)
+                                   in: URL.rimeUserDirectory)
         } completion: { success in
             applyState = success ? .applied : .failed
             DispatchQueue.main.asyncAfter(deadline: .now() + 2.4) {

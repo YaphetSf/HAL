@@ -114,7 +114,7 @@ final class AIEditPanel {
         hosting.layoutSubtreeIfNeeded()
         let size = hosting.fittingSize
         panel.setContentSize(size)
-        panel.setFrameOrigin(origin(for: size, caret: caret))
+        panel.setFrameOrigin(PanelAnchoring.origin(for: size, caret: caret))
         panel.orderFrontRegardless()
     }
 
@@ -124,15 +124,6 @@ final class AIEditPanel {
         let size = hosting.fittingSize
         panel.setContentSize(size)
         panel.setFrameOrigin(NSPoint(x: oldFrame.minX, y: oldFrame.maxY - size.height))
-    }
-
-    private func origin(for size: NSSize, caret: NSRect) -> NSPoint {
-        let screen = NSScreen.screens.first { $0.frame.intersects(caret) } ?? NSScreen.main
-        let visible = screen?.visibleFrame ?? .zero
-        var y = caret.minY - 4 - size.height
-        if y < visible.minY { y = caret.maxY + 4 }
-        let x = min(max(caret.minX, visible.minX), max(visible.minX, visible.maxX - size.width))
-        return NSPoint(x: x, y: y)
     }
 }
 

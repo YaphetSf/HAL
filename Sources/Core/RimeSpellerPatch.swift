@@ -11,10 +11,6 @@ enum RimeSpellerPatch {
     /// Blocks written before 2026-08-26, when the page was a single din-ding toggle.
     private static let legacyMarkers = [("# HAL fuzzy din-ding begin", "# HAL fuzzy din-ding end")]
 
-    static let userDirectory = FileManager.default
-        .urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
-        .appendingPathComponent("HAL/Rime")
-
     static func schemaPatchURL(in userDirectory: URL) -> URL {
         userDirectory.appendingPathComponent("rime_ice.custom.yaml")
     }

@@ -15,8 +15,6 @@ final class CandidatePanel {
 
     private let panel: NSPanel
     private let hosting: NSHostingView<CandidatePanelRootView>
-    /// Distance between the text caret and the panel.
-    private static let gap: CGFloat = 4
 
     private init() {
         hosting = NSHostingView(rootView: CandidatePanelRootView(content: .chinese(.idle,
@@ -72,7 +70,7 @@ final class CandidatePanel {
         // overlong page rather than stretching the panel off screen (D21).
         let size = hosting.fittingSize
         panel.setContentSize(size)
-        let origin = origin(for: size, caret: caret)
+        let origin = PanelAnchoring.origin(for: size, caret: caret)
         panel.setFrameOrigin(origin)
         panel.orderFrontRegardless()
         log.debug("present caret=\(NSStringFromRect(caret), privacy: .public) size=\(NSStringFromSize(size), privacy: .public) origin=\(NSStringFromPoint(origin), privacy: .public) onScreen=\(NSScreen.screens.contains { $0.frame.contains(origin) }, privacy: .public)")
@@ -80,19 +78,6 @@ final class CandidatePanel {
 
     func hide() {
         panel.orderOut(nil)
-    }
-
-    /// Below the caret, flipped above when the bottom of the screen is in the way, and never
-    /// hanging off the side.
-    private func origin(for size: NSSize, caret: NSRect) -> NSPoint {
-        let screen = NSScreen.screens.first { $0.frame.intersects(caret) } ?? NSScreen.main
-        let visible = screen?.visibleFrame ?? .zero
-        var y = caret.minY - Self.gap - size.height
-        if y < visible.minY {
-            y = caret.maxY + Self.gap
-        }
-        let x = min(max(caret.minX, visible.minX), max(visible.minX, visible.maxX - size.width))
-        return NSPoint(x: x, y: y)
     }
 }
 
