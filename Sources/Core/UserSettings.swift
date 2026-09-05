@@ -1,4 +1,5 @@
 import Foundation
+import OSLog
 
 /// One fuzzy rule in user direction (D21): typing `input` also matches candidates whose
 /// syllable is `match` — e.g. `din → ding` means typing "din" offers 定/顶/丁. Rime's
@@ -182,10 +183,17 @@ struct UserSettings: Codable, Equatable {
 
 /// `~/Library/Application Support/HAL/Settings.json` is the only shared store. No XPC or
 /// App Group: the settings app writes atomically and HAL loads at the next relevant event.
+/// Reading is the hot path — every keystroke goes through InputSession's settings closure —
+/// so a load costs one stat unless the file changed. The writer lives in the settings app
+/// target (`SettingsWriter.swift`), which is what makes this store single-writer.
 enum SettingsStore {
+    static let log = Logger(subsystem: "com.hal.inputmethod", category: "settings")
+
     /// Test isolation only: redirects reads and writes away from the user's real
     /// `~/Library/Application Support/HAL/Settings.json`. Never set in production.
-    nonisolated(unsafe) static var directoryOverride: URL?
+    nonisolated(unsafe) static var directoryOverride: URL? {
+        didSet { cache = nil }
+    }
 
     /// The one directory both processes agree on. Settings.json and anything else HAL
     /// keeps for itself — D26's artwork — live side by side in it.
@@ -195,83 +203,49 @@ enum SettingsStore {
                 .appendingPathComponent("HAL")
     }
 
-    private static var url: URL {
+    static var url: URL {
         directory.appendingPathComponent("Settings.json")
     }
 
+    /// What one stat of Settings.json identifies. Size rides along with mtime so two
+    /// writes inside one timestamp tick still count as different files.
+    private struct CacheEntry: Equatable {
+        let modified: Date
+        let size: Int
+        let settings: UserSettings
+    }
+
+    /// Every settings access in a process happens on its main thread — IMK key handling,
+    /// panels, and the settings app are all main-thread callers. That is the same
+    /// contract `RimeRuntime.api` rests on; the compiler cannot see it.
+    nonisolated(unsafe) private static var cache: CacheEntry?
+
     static func load() -> UserSettings {
-        guard let data = try? Data(contentsOf: url),
-              let settings = try? JSONDecoder().decode(UserSettings.self, from: data)
-        else { return UserSettings() }
-        return settings
+        guard let attributes = try? FileManager.default.attributesOfItem(atPath: url.path),
+              let modified = attributes[.modificationDate] as? Date,
+              let size = attributes[.size] as? Int else {
+            // No settings file yet: nothing worth remembering.
+            cache = nil
+            return UserSettings()
+        }
+        if let cache, cache.modified == modified, cache.size == size {
+            return cache.settings
+        }
+        do {
+            let settings = try JSONDecoder().decode(UserSettings.self, from: Data(contentsOf: url))
+            cache = CacheEntry(modified: modified, size: size, settings: settings)
+            return settings
+        } catch {
+            // A file hand-edited into invalidity must not silently look like a clean default.
+            log.error("Settings.json is unreadable, using defaults: \(error.localizedDescription, privacy: .public)")
+            cache = CacheEntry(modified: modified, size: size, settings: UserSettings())
+            return UserSettings()
+        }
     }
 
-    static func saveCandidateColorScheme(_ scheme: CandidateColorScheme) {
-        var settings = load()
-        settings.candidateColorScheme = scheme
-        save(settings)
-    }
-
-    static func saveCustomColorSchemes(_ schemes: [CustomColorScheme]) {
-        var settings = load()
-        settings.customColorSchemes = schemes
-        save(settings)
-    }
-
-    static func saveEnglishCompletionDelay(_ delay: TimeInterval) {
-        var settings = load()
-        settings.englishCompletionDelay = UserSettings(englishCompletionDelay: delay)
-            .englishCompletionDelay
-        save(settings)
-    }
-
-    static func saveCandidatePageSize(_ size: Int) {
-        var settings = load()
-        settings.candidatePageSize = UserSettings(candidatePageSize: size).candidatePageSize
-        save(settings)
-    }
-
-    static func saveCandidateWindowMaxWidth(_ width: Double) {
-        var settings = load()
-        settings.candidateWindowMaxWidth = UserSettings(candidateWindowMaxWidth: width)
-            .candidateWindowMaxWidth
-        save(settings)
-    }
-
-    static func saveSpellerRules(_ rules: [SpellerRule]) {
-        var settings = load()
-        settings.spellerRules = rules
-        save(settings)
-    }
-
-    static func saveAsciiPhrases(_ phrases: [String]) {
-        var settings = load()
-        settings.asciiPhrases = phrases
-        save(settings)
-    }
-
-    static func saveWeightedCandidates(_ rules: [WeightRule]) {
-        var settings = load()
-        settings.weightedCandidates = rules
-        save(settings)
-    }
-
-    static func saveSwitchAnimation(_ choice: SwitchAnimationChoice) {
-        var settings = load()
-        settings.switchAnimation = choice
-        save(settings)
-    }
-
-    static func saveAIEdit(_ aiEdit: AIEditSettings) {
-        var settings = load()
-        settings.aiEdit = aiEdit
-        save(settings)
-    }
-
-    private static func save(_ settings: UserSettings) {
-        guard let data = try? JSONEncoder().encode(settings) else { return }
-        try? FileManager.default.createDirectory(at: url.deletingLastPathComponent(),
-                                                  withIntermediateDirectories: true)
-        try? data.write(to: url, options: .atomic)
+    /// Drops the cached read. The writer calls this after saving, so the next load
+    /// re-stats instead of trusting a stale entry.
+    static func invalidateCache() {
+        cache = nil
     }
 }

@@ -90,6 +90,9 @@ targets:
     sources:
       - path: Sources/Core
       - path: Sources/AIEdit
+      # The settings app is the only Settings.json writer; tests exercise the store
+      # through the same writer the app uses.
+      - path: Sources/SettingsApp/SettingsWriter.swift
       - path: Tests/CoreTests
     settings:
       base:
@@ -104,6 +107,7 @@ targets:
       - path: Sources/Engine
         excludes:
           - "RimeBridge/**"
+      - path: Sources/SettingsApp/SettingsWriter.swift
       - path: Tests/EngineTests
     dependencies:
       - framework: Rime/lib/librime.1.dylib
