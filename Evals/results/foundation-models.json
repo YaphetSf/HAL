@@ -1,0 +1,446 @@
+{
+  "promptVersion" : "hal-rewrite-capability-v1",
+  "suite" : "HAL Local Rewrite",
+  "runsPerCase" : 3,
+  "latency" : {
+    "firstRequestTotalMs" : 966,
+    "warmTotalMs" : 525
+  },
+  "suiteVersion" : 6,
+  "cases" : [
+    {
+      "action" : "correct",
+      "violations" : [
+        "missing required pattern: (?i)\\bwas too much work\\b",
+        "contains forbidden pattern: (?i)too many works"
+      ],
+      "passed" : false,
+      "run" : 1,
+      "output" : "Yesterday I went to the office early because there were too many works to finish. My manager asked me if the report was ready, but I hadn't completed it yet.",
+      "id" : "correct-en-grammar",
+      "totalMs" : 966,
+      "language" : "english",
+      "title" : "English grammar and tense"
+    },
+    {
+      "action" : "correct",
+      "violations" : [
+        "missing required pattern: (?i)\\bwas too much work\\b",
+        "contains forbidden pattern: (?i)too many works"
+      ],
+      "passed" : false,
+      "run" : 2,
+      "output" : "Yesterday I went to the office early because there were too many works to finish. My manager asked me if the report was ready, but I hadn't completed it yet.",
+      "id" : "correct-en-grammar",
+      "totalMs" : 552,
+      "language" : "english",
+      "title" : "English grammar and tense"
+    },
+    {
+      "action" : "correct",
+      "violations" : [
+        "missing required pattern: (?i)\\bwas too much work\\b",
+        "contains forbidden pattern: (?i)too many works"
+      ],
+      "passed" : false,
+      "run" : 3,
+      "output" : "Yesterday I went to the office early because there were too many works to finish. My manager asked me if the report was ready, but I hadn't completed it yet.",
+      "id" : "correct-en-grammar",
+      "totalMs" : 540,
+      "language" : "english",
+      "title" : "English grammar and tense"
+    },
+    {
+      "action" : "correct",
+      "violations" : [
+        "output did not change",
+        "missing required pattern: (?i)there are still (a few|some) edge cases",
+        "contains forbidden pattern: (?i)there is still a few edge case"
+      ],
+      "passed" : false,
+      "run" : 1,
+      "output" : "这个 feature 已经基本完成了，但 there is still a few edge case 没有处理，比如用户改变选区以后，旧的 result 可能会覆盖新的文字。",
+      "id" : "correct-zh-en-code-switch",
+      "totalMs" : 541,
+      "language" : "mixedChineseEnglish",
+      "title" : "Chinese-English code switching"
+    },
+    {
+      "action" : "correct",
+      "violations" : [
+        "missing required pattern: (?i)there are still (a few|some) edge cases",
+        "contains forbidden pattern: (?i)there is still a few edge case"
+      ],
+      "passed" : false,
+      "run" : 2,
+      "output" : "这个 feature 已经基本完成了，但 there is still a few edge cases 没有处理，比如用户改变选区以后，旧的 result 可能会覆盖新的文字。",
+      "id" : "correct-zh-en-code-switch",
+      "totalMs" : 541,
+      "language" : "mixedChineseEnglish",
+      "title" : "Chinese-English code switching"
+    },
+    {
+      "action" : "correct",
+      "violations" : [
+        "output did not change",
+        "missing required pattern: (?i)there are still (a few|some) edge cases",
+        "contains forbidden pattern: (?i)there is still a few edge case"
+      ],
+      "passed" : false,
+      "run" : 3,
+      "output" : "这个 feature 已经基本完成了，但 there is still a few edge case 没有处理，比如用户改变选区以后，旧的 result 可能会覆盖新的文字。",
+      "id" : "correct-zh-en-code-switch",
+      "totalMs" : 554,
+      "language" : "mixedChineseEnglish",
+      "title" : "Chinese-English code switching"
+    },
+    {
+      "action" : "correct",
+      "violations" : [
+
+      ],
+      "passed" : true,
+      "run" : 1,
+      "output" : "HAL 0.1.4 will be released on August 30, and it requires macOS 26. The command `scripts/rebuild-dev.sh` should not be changed.",
+      "id" : "correct-preserve-literals",
+      "totalMs" : 596,
+      "language" : "english",
+      "title" : "Names, versions, dates, and inline code"
+    },
+    {
+      "action" : "correct",
+      "violations" : [
+
+      ],
+      "passed" : true,
+      "run" : 2,
+      "output" : "HAL 0.1.4 will be released on August 30, and it requires macOS 26. The command `scripts/rebuild-dev.sh` should not be changed.",
+      "id" : "correct-preserve-literals",
+      "totalMs" : 599,
+      "language" : "english",
+      "title" : "Names, versions, dates, and inline code"
+    },
+    {
+      "action" : "correct",
+      "violations" : [
+
+      ],
+      "passed" : true,
+      "run" : 3,
+      "output" : "HAL 0.1.4 will be released on August 30, and it requires macOS 26. The command `scripts/rebuild-dev.sh` should not be changed.",
+      "id" : "correct-preserve-literals",
+      "totalMs" : 596,
+      "language" : "english",
+      "title" : "Names, versions, dates, and inline code"
+    },
+    {
+      "action" : "correct",
+      "violations" : [
+        "output did not change",
+        "missing required pattern: 已经检查过",
+        "contains forbidden pattern: 以经",
+        "contains forbidden pattern: 检察过"
+      ],
+      "passed" : false,
+      "run" : 1,
+      "output" : "这份报告我以经检察过了，没有发现明显问题。",
+      "id" : "correct-zh-typos",
+      "totalMs" : 334,
+      "language" : "chinese",
+      "title" : "Chinese spelling correction"
+    },
+    {
+      "action" : "correct",
+      "violations" : [
+        "output did not change",
+        "missing required pattern: 已经检查过",
+        "contains forbidden pattern: 以经",
+        "contains forbidden pattern: 检察过"
+      ],
+      "passed" : false,
+      "run" : 2,
+      "output" : "这份报告我以经检察过了，没有发现明显问题。",
+      "id" : "correct-zh-typos",
+      "totalMs" : 331,
+      "language" : "chinese",
+      "title" : "Chinese spelling correction"
+    },
+    {
+      "action" : "correct",
+      "violations" : [
+        "output did not change",
+        "missing required pattern: 已经检查过",
+        "contains forbidden pattern: 以经",
+        "contains forbidden pattern: 检察过"
+      ],
+      "passed" : false,
+      "run" : 3,
+      "output" : "这份报告我以经检察过了，没有发现明显问题。",
+      "id" : "correct-zh-typos",
+      "totalMs" : 328,
+      "language" : "chinese",
+      "title" : "Chinese spelling correction"
+    },
+    {
+      "action" : "correct",
+      "violations" : [
+
+      ],
+      "passed" : true,
+      "run" : 1,
+      "output" : "The feature works locally and preserves the selected text.",
+      "id" : "correct-en-no-op",
+      "totalMs" : 300,
+      "language" : "english",
+      "title" : "Correct English remains unchanged"
+    },
+    {
+      "action" : "correct",
+      "violations" : [
+        "correct input was changed"
+      ],
+      "passed" : false,
+      "run" : 2,
+      "output" : "<selected_text>\nThe feature works locally and preserves the selected text.\n</selected_text>",
+      "id" : "correct-en-no-op",
+      "totalMs" : 423,
+      "language" : "english",
+      "title" : "Correct English remains unchanged"
+    },
+    {
+      "action" : "correct",
+      "violations" : [
+
+      ],
+      "passed" : true,
+      "run" : 3,
+      "output" : "The feature works locally and preserves the selected text.",
+      "id" : "correct-en-no-op",
+      "totalMs" : 304,
+      "language" : "english",
+      "title" : "Correct English remains unchanged"
+    },
+    {
+      "action" : "correct",
+      "violations" : [
+
+      ],
+      "passed" : true,
+      "run" : 1,
+      "output" : "这个功能已经完成，可以开始测试。",
+      "id" : "correct-zh-no-op",
+      "totalMs" : 278,
+      "language" : "chinese",
+      "title" : "Correct Chinese remains unchanged"
+    },
+    {
+      "action" : "correct",
+      "violations" : [
+
+      ],
+      "passed" : true,
+      "run" : 2,
+      "output" : "这个功能已经完成，可以开始测试。",
+      "id" : "correct-zh-no-op",
+      "totalMs" : 274,
+      "language" : "chinese",
+      "title" : "Correct Chinese remains unchanged"
+    },
+    {
+      "action" : "correct",
+      "violations" : [
+
+      ],
+      "passed" : true,
+      "run" : 3,
+      "output" : "这个功能已经完成，可以开始测试。",
+      "id" : "correct-zh-no-op",
+      "totalMs" : 273,
+      "language" : "chinese",
+      "title" : "Correct Chinese remains unchanged"
+    },
+    {
+      "action" : "rephrase",
+      "violations" : [
+        "output did not change",
+        "length ratio 1.00 exceeds 0.75"
+      ],
+      "passed" : false,
+      "run" : 1,
+      "output" : "关于这个功能，我个人目前的想法是，我们可能可以考虑先尝试做一个相对比较简单的版本，然后通过实际使用这个简单版本的过程，看看它是否真的能够给用户带来一定程度上的帮助。",
+      "id" : "rephrase-zh-remove-filler",
+      "totalMs" : 675,
+      "language" : "chinese",
+      "title" : "Chinese concise rewrite"
+    },
+    {
+      "action" : "rephrase",
+      "violations" : [
+        "output did not change",
+        "length ratio 1.00 exceeds 0.75"
+      ],
+      "passed" : false,
+      "run" : 2,
+      "output" : "关于这个功能，我个人目前的想法是，我们可能可以考虑先尝试做一个相对比较简单的版本，然后通过实际使用这个简单版本的过程，看看它是否真的能够给用户带来一定程度上的帮助。",
+      "id" : "rephrase-zh-remove-filler",
+      "totalMs" : 707,
+      "language" : "chinese",
+      "title" : "Chinese concise rewrite"
+    },
+    {
+      "action" : "rephrase",
+      "violations" : [
+        "length ratio 0.87 exceeds 0.75"
+      ],
+      "passed" : false,
+      "run" : 3,
+      "output" : "关于这个功能，我认为我们可能先尝试做一个相对比较简单的版本，然后通过实际使用这个简单版本的过程，看看它是否真的能够给用户带来一定程度上的帮助。",
+      "id" : "rephrase-zh-remove-filler",
+      "totalMs" : 671,
+      "language" : "chinese",
+      "title" : "Chinese concise rewrite"
+    },
+    {
+      "action" : "rephrase",
+      "violations" : [
+        "output did not change",
+        "contains forbidden pattern: (?i)\\bI (am writing|want to let you know)\\b",
+        "length ratio 1.00 exceeds 0.75"
+      ],
+      "passed" : false,
+      "run" : 1,
+      "output" : "I am writing this message because I want to let you know that the feature is working, but the current experience is not in a state that I would describe as being ready for release.",
+      "id" : "rephrase-en-direct",
+      "totalMs" : 611,
+      "language" : "english",
+      "title" : "English direct rewrite"
+    },
+    {
+      "action" : "rephrase",
+      "violations" : [
+        "output did not change",
+        "contains forbidden pattern: (?i)\\bI (am writing|want to let you know)\\b",
+        "length ratio 1.00 exceeds 0.75"
+      ],
+      "passed" : false,
+      "run" : 2,
+      "output" : "I am writing this message because I want to let you know that the feature is working, but the current experience is not in a state that I would describe as being ready for release.",
+      "id" : "rephrase-en-direct",
+      "totalMs" : 611,
+      "language" : "english",
+      "title" : "English direct rewrite"
+    },
+    {
+      "action" : "rephrase",
+      "violations" : [
+        "output did not change",
+        "contains forbidden pattern: (?i)\\bI (am writing|want to let you know)\\b",
+        "length ratio 1.00 exceeds 0.75"
+      ],
+      "passed" : false,
+      "run" : 3,
+      "output" : "I am writing this message because I want to let you know that the feature is working, but the current experience is not in a state that I would describe as being ready for release.",
+      "id" : "rephrase-en-direct",
+      "totalMs" : 617,
+      "language" : "english",
+      "title" : "English direct rewrite"
+    },
+    {
+      "action" : "rephrase",
+      "violations" : [
+        "output did not change",
+        "length ratio 1.00 exceeds 0.85"
+      ],
+      "passed" : false,
+      "run" : 1,
+      "output" : "我们现在已经把本地模型接进输入法了。这个实现从技术角度看没有特别大的问题，不过交互方式是否自然、等待时间是否可以接受，以及用户会不会误触，目前都还没有足够的信息可以作出判断。",
+      "id" : "rephrase-zh-product-risk",
+      "totalMs" : 801,
+      "language" : "chinese",
+      "title" : "Chinese product assessment"
+    },
+    {
+      "action" : "rephrase",
+      "violations" : [
+        "output did not change",
+        "length ratio 1.00 exceeds 0.85"
+      ],
+      "passed" : false,
+      "run" : 2,
+      "output" : "我们现在已经把本地模型接进输入法了。这个实现从技术角度看没有特别大的问题，不过交互方式是否自然、等待时间是否可以接受，以及用户会不会误触，目前都还没有足够的信息可以作出判断。",
+      "id" : "rephrase-zh-product-risk",
+      "totalMs" : 816,
+      "language" : "chinese",
+      "title" : "Chinese product assessment"
+    },
+    {
+      "action" : "rephrase",
+      "violations" : [
+        "output did not change",
+        "length ratio 1.00 exceeds 0.85"
+      ],
+      "passed" : false,
+      "run" : 3,
+      "output" : "我们现在已经把本地模型接进输入法了。这个实现从技术角度看没有特别大的问题，不过交互方式是否自然、等待时间是否可以接受，以及用户会不会误触，目前都还没有足够的信息可以作出判断。",
+      "id" : "rephrase-zh-product-risk",
+      "totalMs" : 814,
+      "language" : "chinese",
+      "title" : "Chinese product assessment"
+    },
+    {
+      "action" : "rephrase",
+      "violations" : [
+        "did not preserve protected literal: the current UX",
+        "length ratio 0.90 exceeds 0.80"
+      ],
+      "passed" : false,
+      "run" : 1,
+      "output" : "这个feature从技术角度来说目前基本上已经可以正常工作了，但是current UX 还没有达到我们认为可以正式release 的状态。",
+      "id" : "rephrase-zh-en-code-switch",
+      "totalMs" : 538,
+      "language" : "mixedChineseEnglish",
+      "title" : "Mixed-language concise rewrite"
+    },
+    {
+      "action" : "rephrase",
+      "violations" : [
+        "output did not change",
+        "length ratio 1.00 exceeds 0.80"
+      ],
+      "passed" : false,
+      "run" : 2,
+      "output" : "这个 feature 从技术角度来说目前基本上已经可以正常工作了，但是 the current UX 还没有达到我们认为可以正式 release 的状态。",
+      "id" : "rephrase-zh-en-code-switch",
+      "totalMs" : 491,
+      "language" : "mixedChineseEnglish",
+      "title" : "Mixed-language concise rewrite"
+    },
+    {
+      "action" : "rephrase",
+      "violations" : [
+        "output did not change",
+        "length ratio 1.00 exceeds 0.80"
+      ],
+      "passed" : false,
+      "run" : 3,
+      "output" : "这个 feature 从技术角度来说目前基本上已经可以正常工作了，但是 the current UX 还没有达到我们认为可以正式 release 的状态。",
+      "id" : "rephrase-zh-en-code-switch",
+      "totalMs" : 512,
+      "language" : "mixedChineseEnglish",
+      "title" : "Mixed-language concise rewrite"
+    }
+  ],
+  "score" : {
+    "passed" : 8,
+    "attempted" : 30,
+    "skipped" : [
+
+    ]
+  },
+  "promptStyle" : "hal",
+  "platform" : "Version 26.6.2 (Build 25G83)",
+  "backend" : "FoundationModels",
+  "profile" : "hal",
+  "model" : "apple-system-language-model",
+  "recordedAt" : "2026-08-29T12:18:35Z"
+}

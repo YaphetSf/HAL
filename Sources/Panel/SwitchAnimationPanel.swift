@@ -2,34 +2,34 @@ import AppKit
 import OSLog
 import SwiftUI
 
-private let modeFeedbackLog = Logger(subsystem: "com.hal.inputmethod",
+private let switchAnimationLog = Logger(subsystem: "com.hal.inputmethod",
                                      category: "panel")
 
-/// Window mechanics for caret mode feedback: non-activating, mouse-transparent, shared
+/// Window mechanics for caret Switch Animation: non-activating, mouse-transparent, shared
 /// across every IMK controller, and able to follow the active client across Spaces.
 ///
-/// Visual decisions live in ModeFeedbackEffect.swift. This type deliberately delegates
+/// Visual decisions live in SwitchAnimationEffect.swift. This type deliberately delegates
 /// canvas size, caret anchoring, and lifetime to that replaceable skin.
 @MainActor
-final class ModeFeedbackPanel: NSObject {
-    static let shared = ModeFeedbackPanel()
+final class SwitchAnimationPanel: NSObject {
+    static let shared = SwitchAnimationPanel()
 
     private let panel: NSPanel
-    private let hosting: NSHostingView<ModeFeedbackScene>
+    private let hosting: NSHostingView<SwitchAnimationScene>
     private var generation: UInt = 0
 
     private override init() {
-        let initial = ModeFeedbackPresentation(id: 0,
+        let initial = SwitchAnimationPresentation(id: 0,
                                                mode: .chinese,
                                                scheme: .aurora)
-        hosting = NSHostingView(rootView: ModeFeedbackScene(
+        hosting = NSHostingView(rootView: SwitchAnimationScene(
             presentation: initial,
             artwork: nil,
-            placement: ModeFeedbackScene.placement(for: .zero, in: .zero, style: .stamp),
+            placement: SwitchAnimationScene.placement(for: .zero, in: .zero, style: .stamp),
             style: .stamp
         ))
         panel = NSPanel(contentRect: NSRect(origin: .zero,
-                                            size: ModeFeedbackScene.canvasSize(for: .stamp)),
+                                            size: SwitchAnimationScene.canvasSize(for: .stamp)),
                         styleMask: [.nonactivatingPanel, .borderless],
                         backing: .buffered,
                         defer: false)
@@ -46,9 +46,9 @@ final class ModeFeedbackPanel: NSObject {
         panel.contentView = hosting
     }
 
-    func show(_ mode: ModeFeedbackMode, caret: NSRect) {
+    func show(_ mode: SwitchAnimationMode, caret: NSRect) {
         guard Self.isUsable(caret) else {
-            modeFeedbackLog.debug("skip mode feedback: invalid caret=\(NSStringFromRect(caret), privacy: .public)")
+            switchAnimationLog.debug("skip Switch Animation: invalid caret=\(NSStringFromRect(caret), privacy: .public)")
             return
         }
 
@@ -60,22 +60,22 @@ final class ModeFeedbackPanel: NSObject {
 
         generation &+= 1
         let settings = SettingsStore.load()
-        let presentation = ModeFeedbackPresentation(
+        let presentation = SwitchAnimationPresentation(
             id: generation,
             mode: mode,
             scheme: settings.candidateColorScheme
         )
-        let style = ModeFeedbackStyle(settings.modeFeedback)
-        let placement = ModeFeedbackScene.placement(for: caret, in: screen.visibleFrame,
+        let style = SwitchAnimationStyle(settings.switchAnimation)
+        let placement = SwitchAnimationScene.placement(for: caret, in: screen.visibleFrame,
                                                     style: style)
 
-        hosting.rootView = ModeFeedbackScene(
+        hosting.rootView = SwitchAnimationScene(
             presentation: presentation,
-            artwork: ModeFeedbackArtwork.image(for: settings.modeFeedback),
+            artwork: SwitchAnimationArtwork.image(for: settings.switchAnimation),
             placement: placement,
             style: style
         )
-        panel.setContentSize(ModeFeedbackScene.canvasSize(for: style))
+        panel.setContentSize(SwitchAnimationScene.canvasSize(for: style))
         panel.setFrameOrigin(placement.origin)
         panel.orderFrontRegardless()
 
@@ -84,9 +84,9 @@ final class ModeFeedbackPanel: NSObject {
                                                object: nil)
         perform(#selector(hideAfterDelay),
                 with: nil,
-                afterDelay: ModeFeedbackEffect.visibilityDuration)
+                afterDelay: SwitchAnimationEffect.visibilityDuration)
 
-        modeFeedbackLog.debug("mode feedback caret=\(NSStringFromRect(caret), privacy: .public) origin=\(NSStringFromPoint(placement.origin), privacy: .public)")
+        switchAnimationLog.debug("Switch Animation caret=\(NSStringFromRect(caret), privacy: .public) origin=\(NSStringFromPoint(placement.origin), privacy: .public)")
     }
 
     func hide() {

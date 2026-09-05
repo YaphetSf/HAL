@@ -1,0 +1,65 @@
+{
+  "suite": "HAL Local Rewrite",
+  "suiteVersion": 6,
+  "promptVersion": null,
+  "promptStyle": "native",
+  "backend": "transformers 5.15.0",
+  "platform": "macOS-26.5-arm64-arm-64bit-Mach-O",
+  "model": "/Users/ding/Developer/LLMs/HAL/baselines/chinese/ChineseErrorCorrector4-4B-BF16",
+  "adapter": null,
+  "profile": "chinese-corrector",
+  "device": "mps",
+  "recordedAt": "2026-08-29T11:55:50Z",
+  "runsPerCase": 1,
+  "modelLoadMs": 1919,
+  "score": {
+    "passed": 1,
+    "attempted": 2,
+    "skipped": [
+      "correct-en-grammar",
+      "correct-zh-en-code-switch",
+      "correct-preserve-literals",
+      "correct-en-no-op",
+      "rephrase-zh-remove-filler",
+      "rephrase-en-direct",
+      "rephrase-zh-product-risk",
+      "rephrase-zh-en-code-switch"
+    ]
+  },
+  "latency": {
+    "firstRequestTotalMs": 2468,
+    "warmTotalMs": 971
+  },
+  "peakMemoryGb": 8.364,
+  "cases": [
+    {
+      "id": "correct-zh-typos",
+      "title": "Chinese spelling correction",
+      "action": "correct",
+      "language": "chinese",
+      "run": 1,
+      "passed": false,
+      "output": "这份报告我已经检察过了，没有发现明显问题。",
+      "violations": [
+        "missing required pattern: 已经检查过",
+        "contains forbidden pattern: 检察过"
+      ],
+      "totalMs": 2468,
+      "generatedTokens": 86,
+      "peakMemoryGb": 8.364
+    },
+    {
+      "id": "correct-zh-no-op",
+      "title": "Correct Chinese remains unchanged",
+      "action": "correct",
+      "language": "chinese",
+      "run": 1,
+      "passed": true,
+      "output": "这个功能已经完成，可以开始测试。",
+      "violations": [],
+      "totalMs": 971,
+      "generatedTokens": 34,
+      "peakMemoryGb": 8.364
+    }
+  ]
+}

@@ -3,7 +3,7 @@ import SwiftUI
 
 /// The semantic result of a mode switch. Deliberately knows nothing about the skin below
 /// it (D24), so a future visual direction does not leak back into InputController.
-enum ModeFeedbackMode: Equatable, Sendable {
+enum SwitchAnimationMode: Equatable, Sendable {
     case chinese
     case english
     case englishAssist
@@ -11,9 +11,9 @@ enum ModeFeedbackMode: Equatable, Sendable {
 
 /// The small, stable payload that crosses from panel infrastructure into the skin. `id`
 /// makes repeated switches to the same mode replay the one-shot animation.
-struct ModeFeedbackPresentation: Equatable, Sendable {
+struct SwitchAnimationPresentation: Equatable, Sendable {
     let id: UInt
-    let mode: ModeFeedbackMode
+    let mode: SwitchAnimationMode
     let scheme: CandidateColorScheme
 }
 
@@ -21,13 +21,13 @@ struct ModeFeedbackPresentation: Equatable, Sendable {
 /// live in this one file, so replacing HAL's visual language means replacing this file and
 /// nothing else. The stamp shows the user's artwork in the middle — the tennis ball is only
 /// the default one — with the mode badge pinned to its top-right corner (D26).
-struct ModeFeedbackEffect: View {
+struct SwitchAnimationEffect: View {
     /// Infrastructure reads these two values, but owns neither.
     /// Room for the plate, the badge hanging off its corner, and both their shadows.
     static let canvasSize = CGSize(width: 148, height: 120)
     static let visibilityDuration: TimeInterval = 0.92
 
-    let presentation: ModeFeedbackPresentation
+    let presentation: SwitchAnimationPresentation
     /// nil is the built-in ball: the user has no artwork, or theirs stopped loading (D26).
     let artwork: NSImage?
 
@@ -68,7 +68,7 @@ private enum Metrics {
 // MARK: - Stamp
 
 private struct StampEffect: View {
-    let presentation: ModeFeedbackPresentation
+    let presentation: SwitchAnimationPresentation
     let artwork: NSImage?
     let reduceMotion: Bool
 
@@ -76,8 +76,8 @@ private struct StampEffect: View {
 
     var body: some View {
         Color.clear
-            .frame(width: ModeFeedbackEffect.canvasSize.width,
-                   height: ModeFeedbackEffect.canvasSize.height)
+            .frame(width: SwitchAnimationEffect.canvasSize.width,
+                   height: SwitchAnimationEffect.canvasSize.height)
             .keyframeAnimator(initialValue: StampMotion.start, trigger: trigger) { content, motion in
                 content.overlay {
                     StampFrame(presentation: presentation,
@@ -154,7 +154,7 @@ private struct StampMotion {
 }
 
 private struct StampFrame: View {
-    let presentation: ModeFeedbackPresentation
+    let presentation: SwitchAnimationPresentation
     let artwork: NSImage?
     let motion: StampMotion
 
@@ -184,8 +184,8 @@ private struct StampFrame: View {
                 .rotationEffect(.degrees(Double(motion.plateRotation)))
                 .opacity(motion.plateOpacity)
         }
-        .frame(width: ModeFeedbackEffect.canvasSize.width,
-               height: ModeFeedbackEffect.canvasSize.height)
+        .frame(width: SwitchAnimationEffect.canvasSize.width,
+               height: SwitchAnimationEffect.canvasSize.height)
     }
 
     /// The artwork always lands on the same glass plate: a transparent PNG over a busy
@@ -217,7 +217,7 @@ private struct StampFrame: View {
 // MARK: - Skin pieces
 
 private struct ArtworkMark: View {
-    let mode: ModeFeedbackMode
+    let mode: SwitchAnimationMode
     let artwork: NSImage?
     let accent: LinearGradient
     let glow: Color
@@ -245,7 +245,7 @@ private struct ArtworkMark: View {
 }
 
 private struct ModeBadge: View {
-    let mode: ModeFeedbackMode
+    let mode: SwitchAnimationMode
     let accent: LinearGradient
     let glow: Color
 
@@ -266,7 +266,7 @@ private struct ModeBadge: View {
     }
 }
 
-private extension ModeFeedbackMode {
+private extension SwitchAnimationMode {
     var label: String {
         switch self {
         case .chinese: return "中"
@@ -287,16 +287,4 @@ private extension RGB {
     var feedbackColor: Color {
         Color(red: red, green: green, blue: blue)
     }
-}
-
-#Preview("Mode feedback stamp") {
-    ZStack {
-        Color.black
-        ModeFeedbackEffect(
-            presentation: ModeFeedbackPresentation(id: 1, mode: .englishAssist, scheme: .aurora),
-            artwork: nil
-        )
-    }
-    .frame(width: ModeFeedbackEffect.canvasSize.width,
-           height: ModeFeedbackEffect.canvasSize.height)
 }

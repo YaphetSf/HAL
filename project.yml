@@ -11,8 +11,8 @@ settings:
   base:
     SWIFT_VERSION: "6.0"
     SWIFT_DEFAULT_ACTOR_ISOLATION: nonisolated
-    MARKETING_VERSION: "0.1.3"
-    CURRENT_PROJECT_VERSION: "2"
+    MARKETING_VERSION: "0.1.4"
+    CURRENT_PROJECT_VERSION: "1"
     CODE_SIGN_STYLE: Manual
     CODE_SIGN_IDENTITY: "-"
     DEVELOPMENT_TEAM: ""
@@ -68,9 +68,9 @@ targets:
       - path: Sources/Core
       - path: Sources/Panel/CandidateView.swift
       # The control center previews the real skin rather than a mock of it (D26).
-      - path: Sources/Panel/ModeFeedbackEffect.swift
-      - path: Sources/Panel/ModeFeedbackServeEffect.swift
-      - path: Sources/Panel/ModeFeedbackScene.swift
+      - path: Sources/Panel/SwitchAnimationEffect.swift
+      - path: Sources/Panel/SwitchAnimationServeEffect.swift
+      - path: Sources/Panel/SwitchAnimationScene.swift
       - path: Resources/Brand
       - path: Sources/SettingsApp
         excludes:

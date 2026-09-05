@@ -9,6 +9,10 @@ build/
 DerivedData/
 *.dSYM/
 
+# Python evaluation caches
+__pycache__/
+*.py[cod]
+
 # macOS
 .DS_Store
 

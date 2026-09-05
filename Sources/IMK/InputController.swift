@@ -35,6 +35,9 @@ final class InputController: IMKInputController {
 
     /// IMK's "leave the document alone" marker for both range arguments.
     private static let noRange = NSRange(location: NSNotFound, length: 0)
+    /// Keeps the prototype comfortably inside the on-device model's context window while
+    /// still covering paragraphs rather than only individual words.
+    private static let aiEditMaximumLength = 1_500
 
     /// The menu behind the input method's own icon, showing the same flag the menu bar item
     /// shows. Reading it back out of librime instead would be a second answer to the same
@@ -67,6 +70,7 @@ final class InputController: IMKInputController {
         log.info("activateServer client=\(Self.clientID(sender), privacy: .public)")
         if session == nil { session = InputSession(engine: RimeEngine()) }
         session?.setAsciiMode(Self.isAsciiMode)
+        hideAIEdit()
         resetEnglishCompletion()
         publishMode()
     }
@@ -75,26 +79,30 @@ final class InputController: IMKInputController {
     /// the text stays in the app we just left and nothing can remove it.
     override func deactivateServer(_ sender: Any!) {
         log.info("deactivateServer client=\(Self.clientID(sender), privacy: .public)")
+        hideAIEdit()
         resetEnglishCompletion()
-        hideModeFeedback()
+        hideSwitchAnimation()
         if let state = endComposition() { Self.draw(state, client: sender) }
     }
 
     /// IMK calls this when the client wants the composition resolved right now, such as on a
     /// click elsewhere in the document.
     override func commitComposition(_ sender: Any!) {
+        hideAIEdit()
         resetEnglishCompletion()
         if let state = endComposition() { Self.draw(state, client: sender) }
     }
 
     override func hidePalettes() {
+        hideAIEdit()
         resetEnglishCompletion()
-        hideModeFeedback()
+        hideSwitchAnimation()
     }
 
     override func inputControllerWillClose() {
+        hideAIEdit()
         resetEnglishCompletion()
-        hideModeFeedback()
+        hideSwitchAnimation()
     }
 
     override func handle(_ event: NSEvent!, client sender: Any!) -> Bool {
@@ -103,7 +111,13 @@ final class InputController: IMKInputController {
         case .keyDown:
             // `characters` is only readable on key events; other event types raise (D13).
             log.info("keyDown code=\(event.keyCode) chars=\(event.characters ?? "", privacy: .public) mods=\(event.modifierFlags.rawValue)")
+            if let handled = handleAIEditEvent(event, client: sender) {
+                return handled
+            }
             if event.keyCode == UInt16(kVK_F18) {
+                if event.modifierFlags.contains(.option) {
+                    return beginAIEdit(client: sender)
+                }
                 return event.modifierFlags.contains(.shift)
                     ? switchEnglishProfile(client: sender)
                     : switchLanguage(client: sender)
@@ -134,7 +148,7 @@ final class InputController: IMKInputController {
         if let state = commitWithReturn() { Self.draw(state, client: sender) }
         session?.setAsciiMode(Self.isAsciiMode)
         publishMode()
-        showModeFeedback(caret: caret)
+        showSwitchAnimation(caret: caret)
         return true
     }
 
@@ -155,8 +169,136 @@ final class InputController: IMKInputController {
         }
         log.info("englishProfile=\(self.englishProfile == .assist ? "EN+" : "EN", privacy: .public)")
         publishMode()
-        showModeFeedback(caret: caret)
+        showSwitchAnimation(caret: caret)
         return true
+    }
+
+    // MARK: - AI Editing
+
+    /// While the non-activating prototype panel is visible, IMK still owns the keystrokes.
+    /// Returning nil means "dismiss the prototype and let the ordinary HAL/client path see
+    /// this key" so starting to type never traps the user in a modal interaction.
+    private func handleAIEditEvent(_ event: NSEvent, client sender: Any!) -> Bool? {
+        let phase = MainActor.assumeIsolated { AIEditPanel.shared.inputPhase }
+        guard case .hidden = phase else {
+            if Int(event.keyCode) == kVK_Escape {
+                hideAIEdit()
+                return true
+            }
+
+            switch phase {
+            case .choosing:
+                let action: AIEditAction?
+                switch Int(event.keyCode) {
+                case kVK_ANSI_1, kVK_ANSI_Keypad1:
+                    action = .correct
+                case kVK_ANSI_2, kVK_ANSI_Keypad2:
+                    action = .rephrase
+                default:
+                    action = nil
+                }
+                guard let action else {
+                    hideAIEdit()
+                    return nil
+                }
+                MainActor.assumeIsolated { AIEditPanel.shared.choose(action) }
+                return true
+
+            case .result:
+                guard Int(event.keyCode) == kVK_Return ||
+                        Int(event.keyCode) == kVK_ANSI_KeypadEnter else {
+                    hideAIEdit()
+                    return nil
+                }
+                guard let replacement = MainActor.assumeIsolated({
+                    AIEditPanel.shared.replacement()
+                }) else {
+                    hideAIEdit()
+                    return true
+                }
+                return applyAIEdit(replacement, client: sender)
+
+            case .generating, .failure:
+                hideAIEdit()
+                return nil
+
+            case .hidden:
+                return nil
+            }
+        }
+        return nil
+    }
+
+    private func beginAIEdit(client sender: Any!) -> Bool {
+        resetEnglishCompletion()
+        hideSwitchAnimation()
+
+        let caret = Self.caretRect(client: sender)
+        guard let client = sender as? IMKTextInput else {
+            MainActor.assumeIsolated {
+                AIEditPanel.shared.presentFailure(
+                    "This field does not expose editable text to the input method.",
+                    caret: caret
+                )
+            }
+            return true
+        }
+
+        let range = client.selectedRange()
+        guard range.location != NSNotFound,
+              range.length > 0,
+              range.length <= Self.aiEditMaximumLength,
+              let attributedText = client.attributedSubstring(from: range),
+              attributedText.length == range.length,
+              attributedText.string.utf16.count == range.length else {
+            MainActor.assumeIsolated {
+                AIEditPanel.shared.presentFailure(
+                    "Select 1–\(Self.aiEditMaximumLength) editable characters first.",
+                    caret: caret
+                )
+            }
+            return true
+        }
+
+        let snapshot = AIEditSnapshot(text: attributedText.string,
+                                                  range: range,
+                                                  clientID: Self.clientID(sender))
+        let selectionRect = Self.selectionRect(client: client, range: range)
+        MainActor.assumeIsolated {
+            AIEditPanel.shared.present(snapshot: snapshot, caret: selectionRect)
+        }
+        log.info("ai edit opened client=\(snapshot.clientID, privacy: .public) length=\(range.length)")
+        return true
+    }
+
+    /// The model can take seconds. Re-read all volatile client state before inserting so a
+    /// result can never overwrite a new selection, a new document, or a different app.
+    private func applyAIEdit(_ replacement: AIEditReplacement,
+                                         client sender: Any!) -> Bool {
+        guard let client = sender as? IMKTextInput,
+              Self.clientID(sender) == replacement.snapshot.clientID,
+              client.selectedRange() == replacement.snapshot.range,
+              let currentText = client.attributedSubstring(from: replacement.snapshot.range),
+              currentText.length == replacement.snapshot.range.length,
+              currentText.string == replacement.snapshot.text else {
+            let caret = Self.caretRect(client: sender)
+            MainActor.assumeIsolated {
+                AIEditPanel.shared.presentFailure(
+                    "The selection changed while the model was working, so nothing was replaced.",
+                    caret: caret
+                )
+            }
+            return true
+        }
+
+        client.insertText(replacement.text, replacementRange: replacement.snapshot.range)
+        hideAIEdit()
+        log.info("ai edit applied action=\(replacement.action.rawValue, privacy: .public) client=\(replacement.snapshot.clientID, privacy: .public) sourceLength=\(replacement.snapshot.range.length) resultLength=\(replacement.text.utf16.count)")
+        return true
+    }
+
+    private func hideAIEdit() {
+        MainActor.assumeIsolated { AIEditPanel.shared.hide() }
     }
 
     // MARK: - English Assist
@@ -288,21 +430,21 @@ final class InputController: IMKInputController {
 
     /// D24's boundary: the input controller publishes only semantic mode + caret. Window
     /// behavior and the replaceable experimental skin both live under Panel/.
-    private func showModeFeedback(caret: NSRect) {
-        let mode: ModeFeedbackMode
+    private func showSwitchAnimation(caret: NSRect) {
+        let mode: SwitchAnimationMode
         if !Self.isAsciiMode {
             mode = .chinese
         } else {
             mode = englishProfile == .assist ? .englishAssist : .english
         }
         MainActor.assumeIsolated {
-            ModeFeedbackPanel.shared.show(mode, caret: caret)
+            SwitchAnimationPanel.shared.show(mode, caret: caret)
         }
     }
 
-    private func hideModeFeedback() {
+    private func hideSwitchAnimation() {
         MainActor.assumeIsolated {
-            ModeFeedbackPanel.shared.hide()
+            SwitchAnimationPanel.shared.hide()
         }
     }
 
@@ -359,6 +501,12 @@ final class InputController: IMKInputController {
         guard let client = sender as? IMKTextInput else { return nil }
         let range = client.selectedRange()
         return range.location == NSNotFound ? nil : range
+    }
+
+    private static func selectionRect(client: IMKTextInput, range: NSRange) -> NSRect {
+        var rect = NSRect.zero
+        _ = client.attributes(forCharacterIndex: range.location, lineHeightRectangle: &rect)
+        return rect
     }
 
     // MARK: - Events

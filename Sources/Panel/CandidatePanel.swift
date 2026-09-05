@@ -21,7 +21,8 @@ final class CandidatePanel {
     private init() {
         hosting = NSHostingView(rootView: CandidatePanelRootView(content: .chinese(.idle,
                                                                                    justAppeared: false,
-                                                                                   scheme: .aurora)))
+                                                                                   scheme: .aurora,
+                                                                                   maxWidth: UserSettings.defaultCandidateWindowMaxWidth)))
         panel = NSPanel(contentRect: .zero,
                         styleMask: [.nonactivatingPanel, .borderless],
                         backing: .buffered,
@@ -46,9 +47,11 @@ final class CandidatePanel {
         let justAppeared = !panel.isVisible
         // Read on every show rather than cached: the control center (D21) writes this file
         // directly, and a fresh read is cheap enough not to bother syncing otherwise.
+        let settings = SettingsStore.load()
         hosting.rootView = CandidatePanelRootView(content: .chinese(state,
                                                                      justAppeared: justAppeared,
-                                                                     scheme: SettingsStore.load().candidateColorScheme))
+                                                                     scheme: settings.candidateColorScheme,
+                                                                     maxWidth: settings.candidateWindowMaxWidth))
         present(caret: caret)
     }
 
@@ -65,6 +68,8 @@ final class CandidatePanel {
 
     private func present(caret: NSRect) {
         hosting.layoutSubtreeIfNeeded()
+        // CandidateView already holds itself to the user's max width, ellipsizing an
+        // overlong page rather than stretching the panel off screen (D21).
         let size = hosting.fittingSize
         panel.setContentSize(size)
         let origin = origin(for: size, caret: caret)
@@ -93,7 +98,8 @@ final class CandidatePanel {
 
 private struct CandidatePanelRootView: View {
     enum Content {
-        case chinese(EngineState, justAppeared: Bool, scheme: CandidateColorScheme)
+        case chinese(EngineState, justAppeared: Bool, scheme: CandidateColorScheme,
+                     maxWidth: CGFloat)
         case english(prefix: String, suggestions: [String], highlightedIndex: Int,
                      justAppeared: Bool, scheme: CandidateColorScheme)
     }
@@ -102,12 +108,13 @@ private struct CandidatePanelRootView: View {
 
     @ViewBuilder var body: some View {
         switch content {
-        case let .chinese(state, justAppeared, scheme):
+        case let .chinese(state, justAppeared, scheme, maxWidth):
             CandidateView(candidates: state.candidates,
                           highlightedIndex: state.highlightedIndex,
                           page: state.page,
                           justAppeared: justAppeared,
-                          scheme: scheme)
+                          scheme: scheme,
+                          maxWidth: maxWidth)
         case let .english(prefix, suggestions, highlightedIndex, justAppeared, scheme):
             EnglishCompletionView(prefix: prefix,
                                   suggestions: suggestions,

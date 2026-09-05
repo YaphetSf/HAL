@@ -1,7 +1,7 @@
 import AppKit
 
 /// The one brand mark: the bundled `logo.svg`. Every logo surface draws it — the sidebar,
-/// About, the install hero, the menu bar item, the mode-feedback stamp, and (via
+/// About, the install hero, the menu bar item, the switch-animation stamp, and (via
 /// scripts/generate-app-icon.swift) the App Icon and the input-method menu icon. Swapping
 /// the logo is replacing that single file and rerunning the script.
 enum BrandMark {

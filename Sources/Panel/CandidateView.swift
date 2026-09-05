@@ -14,6 +14,10 @@ struct CandidateView: View {
     /// drives the entrance pop so retyping/paging doesn't replay it every keystroke.
     var justAppeared: Bool = false
     var scheme: CandidateColorScheme = .aurora
+    /// Hard cap on the row width (D21). When set, a candidate longer than the remaining
+    /// room is ellipsized instead of stretching the row off screen; nil keeps the old
+    /// unlimited "fit everything" behavior.
+    var maxWidth: CGFloat? = nil
 
     @Namespace private var highlight
     @State private var appear: CGFloat = 0
@@ -25,15 +29,23 @@ struct CandidateView: View {
     private var glow: Color { scheme.glow.color }
 
     var body: some View {
-        HStack(spacing: 4) {
+        let capped = maxWidth != nil
+        return HStack(spacing: 4) {
             arrow("chevron.left", visible: page.hasPrev)
             ForEach(Array(candidates.enumerated()), id: \.offset) { index, candidate in
+                // Descending priority: when the cap leaves the page short of room, the
+                // candidates most likely to be picked keep their text and the tail
+                // ellipsizes, instead of every candidate losing an equal slice.
                 item(index: index, candidate: candidate)
+                    .layoutPriority(Double(candidates.count - index))
             }
             arrow("chevron.right", visible: page.hasNext)
         }
         .padding(.horizontal, 8)
         .padding(.vertical, 6)
+        // The cap binds the row inside the window, not the window itself, so an overlong
+        // page ellipsizes within a whole rounded panel instead of one sliced off at the cap.
+        .frame(maxWidth: maxWidth.map { $0 - 20 }, alignment: .leading)
         .background(
             RoundedRectangle(cornerRadius: 10)
                 .fill(.regularMaterial)
@@ -42,7 +54,9 @@ struct CandidateView: View {
         .clipShape(RoundedRectangle(cornerRadius: 10))
         .padding(10)
         .shadow(color: glow.opacity(0.35), radius: 10, y: 2)
-        .fixedSize()
+        // Capped: flex up to maxWidth and let overlong candidates ellipsize. Uncapped:
+        // the old fixed natural size, everything always visible.
+        .fixedSize(horizontal: !capped, vertical: true)
         .scaleEffect(0.85 + 0.15 * appear)
         .opacity(appear)
         .animation(.spring(response: 0.32, dampingFraction: 0.72), value: highlightedIndex)
@@ -61,9 +75,13 @@ struct CandidateView: View {
             Text("\((index + 1) % 10)")
                 .font(.system(size: 11, weight: .semibold, design: .rounded))
                 .foregroundStyle(isHighlighted ? .white.opacity(0.85) : .secondary)
+                .fixedSize()
+                .layoutPriority(1)
             Text(candidate.text)
                 .font(.system(size: 16, weight: isHighlighted ? .semibold : .regular))
                 .foregroundStyle(isHighlighted ? AnyShapeStyle(.white) : AnyShapeStyle(.primary))
+                .lineLimit(1)
+                .truncationMode(.tail)
         }
         .padding(.horizontal, 7)
         .padding(.vertical, 3)
@@ -84,6 +102,7 @@ struct CandidateView: View {
             .foregroundStyle(visible ? AnyShapeStyle(accent) : AnyShapeStyle(.clear))
             .opacity(visible ? 1 : 0)
             .frame(width: visible ? nil : 0)
+            .layoutPriority(Double(candidates.count + 1))
     }
 }
 

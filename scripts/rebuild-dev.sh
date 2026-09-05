@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Dev loop: rebuild -> ad-hoc sign -> ditto over installed locations -> restart.
+# Dev loop: rebuild -> ad-hoc sign -> staged bundle replacement -> restart.
 #
 # The canonical install locations stay at the same paths after every rebuild, so Launch
 # Services + Text Input Manager keep resolving the bundle ID to the live binary and no
@@ -44,6 +44,21 @@ INPUT_APP="$DERIVED/Build/Products/$CONFIG/$APP_NAME.app"
 CONTROL_CENTER_BUILD="$DERIVED/Build/Products/$CONFIG/$CONTROL_CENTER.app"
 CONTROL_CENTER_DEST="$HOME/Applications/$CONTROL_CENTER.app"
 
+# `ditto source existing.app` merges bundles and leaves obsolete resources behind. That
+# invalidates the resource seal (and once left a stale miku.svg in HAL_input). Build a
+# complete sibling first, verify it, then replace the exact installed bundle.
+install_bundle() {
+  local source="$1"
+  local target="$2"
+  local staging="${target}.hal-staging"
+
+  rm -rf "$staging"
+  ditto "$source" "$staging"
+  codesign --verify --deep --strict "$staging"
+  rm -rf "$target"
+  mv "$staging" "$target"
+}
+
 # The control center ships HAL_input as a payload for its repair/update flow. Refresh it
 # on every rebuild so the carried binary matches the one we just installed.
 if [ -d "$CONTROL_CENTER_BUILD" ]; then
@@ -59,12 +74,12 @@ echo "==> stopping $APP_NAME / $CONTROL_CENTER"
 
 echo "==> installing into $DEST"
 mkdir -p "$DEST"
-ditto "$INPUT_APP" "$DEST/$APP_NAME.app"
+install_bundle "$INPUT_APP" "$DEST/$APP_NAME.app"
 
 if [ -d "$CONTROL_CENTER_BUILD" ]; then
   echo "==> installing $CONTROL_CENTER.app into $HOME/Applications"
   mkdir -p "$HOME/Applications"
-  ditto "$CONTROL_CENTER_BUILD" "$CONTROL_CENTER_DEST"
+  install_bundle "$CONTROL_CENTER_BUILD" "$CONTROL_CENTER_DEST"
 fi
 
 # Every build product carries the same bundle ID as the installed copy, so Launch Services

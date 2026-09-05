@@ -47,32 +47,56 @@ struct UserSettings: Codable, Equatable {
     static let defaultEnglishCompletionDelay: TimeInterval = 0.075
     static let englishCompletionDelayRange: ClosedRange<TimeInterval> = 0...0.3
     static let defaultAsciiPhrases = ["e.g.", "i.e.", "etc."]
+    /// How many candidates librime puts on one page, wired into rime's `menu/page_size`
+    /// by the patch writer (D21). Selection numbers 1-9 stay unambiguous, so the ceiling is 9.
+    static let candidatePageSizeRange = 3...9
+    static let defaultCandidatePageSize = 5
+    /// How wide the candidate window may grow before a single long candidate gets
+    /// ellipsized instead of pushing the row off screen (D21). Applied by the panel on
+    /// every show, so a change reaches the next candidate window without a restart.
+    static let candidateWindowMaxWidthRange = 200.0...900.0
+    static let defaultCandidateWindowMaxWidth = 640.0
 
     var candidateColorScheme: CandidateColorScheme
     /// The user-built schemes (D2x), selectable beside the presets; the live one is named
     /// by `candidateColorScheme.customID`.
     var customColorSchemes: [CustomColorScheme]
     var englishCompletionDelay: TimeInterval
+    /// Candidates per page in the candidate window (D21): rime's `menu/page_size`,
+    /// 3-9, applied by the patch writer.
+    var candidatePageSize: Int
+    /// Hard cap on the candidate window's width (D21); a single candidate longer than
+    /// the cap is ellipsized instead of stretching the row off screen. Read live by the
+    /// panel on every show, so it applies to the next candidate window without a restart.
+    var candidateWindowMaxWidth: Double
     var spellerRules: [SpellerRule]
     var asciiPhrases: [String]
     var weightedCandidates: [WeightRule]
     /// What a mode switch plays: an artwork stamp or the tennis serve (D26).
-    var modeFeedback: ModeFeedbackChoice
+    var switchAnimation: SwitchAnimationChoice
+    /// AI-edit provider and its endpoint configuration (D28).
+    var aiEdit: AIEditSettings
 
     init(candidateColorScheme: CandidateColorScheme = .mono,
          customColorSchemes: [CustomColorScheme] = [],
          englishCompletionDelay: TimeInterval = Self.defaultEnglishCompletionDelay,
+         candidatePageSize: Int = Self.defaultCandidatePageSize,
+         candidateWindowMaxWidth: Double = Self.defaultCandidateWindowMaxWidth,
          spellerRules: [SpellerRule] = [SpellerRule.dinToDing],
          asciiPhrases: [String] = UserSettings.defaultAsciiPhrases,
          weightedCandidates: [WeightRule] = [],
-         modeFeedback: ModeFeedbackChoice = .miku) {
+         switchAnimation: SwitchAnimationChoice = .miku,
+         aiEdit: AIEditSettings = AIEditSettings()) {
         self.candidateColorScheme = candidateColorScheme
         self.customColorSchemes = customColorSchemes
         self.englishCompletionDelay = Self.clamp(englishCompletionDelay)
+        self.candidatePageSize = Self.clampPageSize(candidatePageSize)
+        self.candidateWindowMaxWidth = Self.clampMaxWidth(candidateWindowMaxWidth)
         self.spellerRules = spellerRules
         self.asciiPhrases = asciiPhrases
         self.weightedCandidates = weightedCandidates
-        self.modeFeedback = modeFeedback
+        self.switchAnimation = switchAnimation
+        self.aiEdit = aiEdit
     }
 
     init(from decoder: Decoder) throws {
@@ -80,11 +104,17 @@ struct UserSettings: Codable, Equatable {
         candidateColorScheme = try values.decodeIfPresent(CandidateColorScheme.self,
                                                            forKey: .candidateColorScheme) ?? .mono
         customColorSchemes = try values.decodeIfPresent([CustomColorScheme].self,
-                                                         forKey: .customColorSchemes) ?? []
+                                                          forKey: .customColorSchemes) ?? []
         let delay = try values.decodeIfPresent(TimeInterval.self,
                                                 forKey: .englishCompletionDelay)
             ?? Self.defaultEnglishCompletionDelay
         englishCompletionDelay = Self.clamp(delay)
+        candidatePageSize = Self.clampPageSize(
+            try values.decodeIfPresent(Int.self, forKey: .candidatePageSize)
+                ?? Self.defaultCandidatePageSize)
+        candidateWindowMaxWidth = Self.clampMaxWidth(
+            try values.decodeIfPresent(Double.self, forKey: .candidateWindowMaxWidth)
+                ?? Self.defaultCandidateWindowMaxWidth)
         if let rules = try values.decodeIfPresent([SpellerRule].self, forKey: .spellerRules) {
             spellerRules = rules
         } else {
@@ -97,8 +127,10 @@ struct UserSettings: Codable, Equatable {
             ?? Self.defaultAsciiPhrases
         weightedCandidates = try values.decodeIfPresent([WeightRule].self,
                                                         forKey: .weightedCandidates) ?? []
-        modeFeedback = (try? values.decodeIfPresent(ModeFeedbackChoice.self,
-                                                    forKey: .modeFeedback)) ?? .miku
+        switchAnimation = (try? values.decodeIfPresent(SwitchAnimationChoice.self,
+                                                    forKey: .switchAnimation)) ?? .miku
+        aiEdit = (try? values.decodeIfPresent(AIEditSettings.self,
+                                                 forKey: .aiEdit)) ?? AIEditSettings()
     }
 
     /// `fuzzyDinToDing` exists only so pre-2026-08-26 Settings.json still decodes; it is
@@ -108,26 +140,43 @@ struct UserSettings: Codable, Equatable {
         try container.encode(candidateColorScheme, forKey: .candidateColorScheme)
         try container.encode(customColorSchemes, forKey: .customColorSchemes)
         try container.encode(englishCompletionDelay, forKey: .englishCompletionDelay)
+        try container.encode(candidatePageSize, forKey: .candidatePageSize)
+        try container.encode(candidateWindowMaxWidth, forKey: .candidateWindowMaxWidth)
         try container.encode(spellerRules, forKey: .spellerRules)
         try container.encode(asciiPhrases, forKey: .asciiPhrases)
         try container.encode(weightedCandidates, forKey: .weightedCandidates)
-        try container.encode(modeFeedback, forKey: .modeFeedback)
+        try container.encode(switchAnimation, forKey: .switchAnimation)
+        try container.encode(aiEdit, forKey: .aiEdit)
     }
 
     private enum CodingKeys: String, CodingKey {
         case candidateColorScheme
         case customColorSchemes
         case englishCompletionDelay
+        case candidatePageSize
+        case candidateWindowMaxWidth
         case spellerRules
         case asciiPhrases
         case weightedCandidates
-        case modeFeedback
+        case switchAnimation
+        case aiEdit
         case fuzzyDinToDing
     }
 
     private static func clamp(_ delay: TimeInterval) -> TimeInterval {
         min(max(delay, englishCompletionDelayRange.lowerBound),
             englishCompletionDelayRange.upperBound)
+    }
+
+    /// Settings.json is hand-editable; anything outside the selectable range clamps in.
+    private static func clampPageSize(_ size: Int) -> Int {
+        min(max(size, candidatePageSizeRange.lowerBound),
+            candidatePageSizeRange.upperBound)
+    }
+
+    private static func clampMaxWidth(_ width: Double) -> Double {
+        min(max(width, candidateWindowMaxWidthRange.lowerBound),
+            candidateWindowMaxWidthRange.upperBound)
     }
 }
 
@@ -176,6 +225,19 @@ enum SettingsStore {
         save(settings)
     }
 
+    static func saveCandidatePageSize(_ size: Int) {
+        var settings = load()
+        settings.candidatePageSize = UserSettings(candidatePageSize: size).candidatePageSize
+        save(settings)
+    }
+
+    static func saveCandidateWindowMaxWidth(_ width: Double) {
+        var settings = load()
+        settings.candidateWindowMaxWidth = UserSettings(candidateWindowMaxWidth: width)
+            .candidateWindowMaxWidth
+        save(settings)
+    }
+
     static func saveSpellerRules(_ rules: [SpellerRule]) {
         var settings = load()
         settings.spellerRules = rules
@@ -194,9 +256,15 @@ enum SettingsStore {
         save(settings)
     }
 
-    static func saveModeFeedback(_ choice: ModeFeedbackChoice) {
+    static func saveSwitchAnimation(_ choice: SwitchAnimationChoice) {
         var settings = load()
-        settings.modeFeedback = choice
+        settings.switchAnimation = choice
+        save(settings)
+    }
+
+    static func saveAIEdit(_ aiEdit: AIEditSettings) {
+        var settings = load()
+        settings.aiEdit = aiEdit
         save(settings)
     }
 

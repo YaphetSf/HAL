@@ -25,6 +25,15 @@
 	<key>NSPrincipalClass</key>
 	<string>NSApplication</string>
 
+	<!-- The AI-edit endpoint is user-supplied and commonly a plain-HTTP server on a LAN or
+	     tailnet (mlx_lm.server et al.), and ATS exceptions cannot be scoped to IP literals.
+	     Networking is confined to the URL the user configures, so relax ATS outright. -->
+	<key>NSAppTransportSecurity</key>
+	<dict>
+		<key>NSAllowsArbitraryLoads</key>
+		<true/>
+	</dict>
+
 	<!-- LSUIElement, not LSBackgroundOnly: matches Apple's own IMK input methods, and
 	     LSBackgroundOnly would forbid the candidate panel in M4. -->
 	<key>LSUIElement</key>

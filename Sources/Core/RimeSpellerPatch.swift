@@ -19,7 +19,9 @@ enum RimeSpellerPatch {
         userDirectory.appendingPathComponent("rime_ice.custom.yaml")
     }
 
-    static func write(rules: [SpellerRule], asciiPhrases: [String], in userDirectory: URL) {
+    static func write(rules: [SpellerRule], asciiPhrases: [String],
+                      pageSize: Int = UserSettings.defaultCandidatePageSize,
+                      in userDirectory: URL) {
         let url = schemaPatchURL(in: userDirectory)
         let existing = (try? String(contentsOf: url, encoding: .utf8)) ?? ""
         var withoutBlocks = existing
@@ -40,6 +42,11 @@ enum RimeSpellerPatch {
                 // Yaml double-quoted scalars would eat a lone backslash; double them.
                 let yamlPattern = pattern.replacingOccurrences(of: "\\", with: "\\\\")
                 lines.append("  \"recognizer/patterns/hal_ascii_pass\": \"\(yamlPattern)\"")
+            }
+            // rime's default is 5; only write a page_size when the user chose otherwise,
+            // so resetting to the default strips the block back out (D21).
+            if pageSize != UserSettings.defaultCandidatePageSize {
+                lines.append("  \"menu/page_size\": \(pageSize)")
             }
             return lines
         }()

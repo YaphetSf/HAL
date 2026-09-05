@@ -1,0 +1,83 @@
+{
+  "suite": "HAL Local Rewrite",
+  "suiteVersion": 6,
+  "promptVersion": null,
+  "promptStyle": "native",
+  "backend": "mlx-lm 0.31.3",
+  "platform": "macOS-26.5-arm64-arm-64bit-Mach-O",
+  "model": "/Users/ding/Developer/LLMs/HAL/baselines/english/Qwen2.5-3B-GEC-v2-MLX-BF16",
+  "profile": "qwen25-gec",
+  "recordedAt": "2026-08-29T12:19:00Z",
+  "runsPerCase": 1,
+  "modelLoadMs": 1279,
+  "score": {
+    "passed": 2,
+    "attempted": 3,
+    "skipped": [
+      "correct-zh-en-code-switch",
+      "correct-zh-typos",
+      "correct-zh-no-op",
+      "rephrase-zh-remove-filler",
+      "rephrase-en-direct",
+      "rephrase-zh-product-risk",
+      "rephrase-zh-en-code-switch"
+    ]
+  },
+  "latency": {
+    "firstRequestTtftMs": 163,
+    "firstRequestTotalMs": 530,
+    "warmTtftMs": 103,
+    "warmTotalMs": 364
+  },
+  "peakMemoryGb": 6.281,
+  "cases": [
+    {
+      "id": "correct-en-grammar",
+      "title": "English grammar and tense",
+      "action": "correct",
+      "language": "english",
+      "run": 1,
+      "passed": false,
+      "output": "Yesterday I went to the office early because there were too many works to finish. My manager asked me if the report was ready, but I haven't completed it yet.",
+      "violations": [
+        "missing required pattern: (?i)\\bwas too much work\\b",
+        "contains forbidden pattern: (?i)too many works"
+      ],
+      "firstTokenMs": 163,
+      "totalMs": 530,
+      "promptTokens": 58,
+      "generatedTokens": 35,
+      "peakMemoryGb": 6.274
+    },
+    {
+      "id": "correct-preserve-literals",
+      "title": "Names, versions, dates, and inline code",
+      "action": "correct",
+      "language": "english",
+      "run": 1,
+      "passed": true,
+      "output": "HAL 0.1.4 will be released on August 30, and it requires macOS 26. The command `scripts/rebuild-dev.sh` should not be changed.",
+      "violations": [],
+      "firstTokenMs": 105,
+      "totalMs": 515,
+      "promptTokens": 62,
+      "generatedTokens": 39,
+      "peakMemoryGb": 6.281
+    },
+    {
+      "id": "correct-en-no-op",
+      "title": "Correct English remains unchanged",
+      "action": "correct",
+      "language": "english",
+      "run": 1,
+      "passed": true,
+      "output": "The feature works locally and preserves the selected text.",
+      "violations": [],
+      "firstTokenMs": 101,
+      "totalMs": 212,
+      "promptTokens": 34,
+      "generatedTokens": 11,
+      "peakMemoryGb": 6.236
+    }
+  ]
+}

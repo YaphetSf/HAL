@@ -1,0 +1,392 @@
+{
+  "suite": "HAL Local Rewrite",
+  "version": 7,
+  "cases": [
+    {
+      "id": "correct-en-grammar",
+      "title": "English grammar and tense",
+      "action": "correct",
+      "input": "Yesterday I goes to the office early because there was too many works to finish. My manager ask me if the report were ready, but I haven't complete it yet.",
+      "expectedExample": "Yesterday, I went to the office early because there was too much work to finish. My manager asked me if the report was ready, but I hadn't completed it yet.",
+      "checks": {
+        "mustChange": true,
+        "language": "english",
+        "protectedLiterals": [],
+        "requiredPatterns": [
+          "(?i)\\bwent\\b",
+          "(?i)\\bwas too much work\\b",
+          "(?i)\\bmanager asked\\b",
+          "(?i)\\breport was ready\\b",
+          "(?i)\\b(had not|hadn't|have not|haven't) completed\\b"
+        ],
+        "forbiddenPatterns": [
+          "(?i)\\bgoes\\b",
+          "(?i)too many works",
+          "(?i)\\bmanager ask\\b",
+          "(?i)report were ready",
+          "(?i)haven't complete\\b"
+        ]
+      }
+    },
+    {
+      "id": "correct-zh-en-code-switch",
+      "title": "Chinese-English code switching",
+      "action": "correct",
+      "input": "这个 feature 已经基本完成了，但 there is still a few edge case 没有处理，比如用户改变选区以后，旧的 result 可能会覆盖新的文字。",
+      "expectedExample": "这个 feature 已经基本完成了，但 there are still a few edge cases 没有处理，比如用户改变选区以后，旧的 result 可能会覆盖新的文字。",
+      "checks": {
+        "mustChange": true,
+        "language": "mixedChineseEnglish",
+        "protectedLiterals": [
+          "feature",
+          "result"
+        ],
+        "requiredPatterns": [
+          "(?i)there are still (a few|some) edge cases"
+        ],
+        "forbiddenPatterns": [
+          "(?i)there is still a few edge case"
+        ]
+      }
+    },
+    {
+      "id": "correct-preserve-literals",
+      "title": "Names, versions, dates, and inline code",
+      "action": "correct",
+      "input": "HAL 0.1.4 will be release on August 30, and it require macOS 26. The command `scripts/rebuild-dev.sh` should not be changed.",
+      "expectedExample": "HAL 0.1.4 will be released on August 30, and it requires macOS 26. The command `scripts/rebuild-dev.sh` should not be changed.",
+      "checks": {
+        "mustChange": true,
+        "language": "english",
+        "protectedLiterals": [
+          "HAL 0.1.4",
+          "August 30",
+          "macOS 26",
+          "`scripts/rebuild-dev.sh`"
+        ],
+        "requiredPatterns": [
+          "(?i)will be released",
+          "(?i)it requires"
+        ],
+        "forbiddenPatterns": [
+          "(?i)will be release\\b",
+          "(?i)it require\\b"
+        ]
+      }
+    },
+    {
+      "id": "correct-zh-typos",
+      "title": "Chinese spelling correction",
+      "action": "correct",
+      "input": "这份报告我以经检察过了，没有发现明显问题。",
+      "expectedExample": "这份报告我已经检查过了，没有发现明显问题。",
+      "checks": {
+        "mustChange": true,
+        "language": "chinese",
+        "protectedLiterals": [
+          "报告",
+          "明显问题"
+        ],
+        "requiredPatterns": [
+          "已经检查过"
+        ],
+        "forbiddenPatterns": [
+          "以经",
+          "检察过"
+        ]
+      }
+    },
+    {
+      "id": "correct-en-no-op",
+      "title": "Correct English remains unchanged",
+      "action": "correct",
+      "input": "The feature works locally and preserves the selected text.",
+      "expectedExample": "The feature works locally and preserves the selected text.",
+      "checks": {
+        "mustChange": false,
+        "mustEqualInput": true,
+        "language": "english",
+        "protectedLiterals": [
+          "feature",
+          "selected text"
+        ],
+        "requiredPatterns": [],
+        "forbiddenPatterns": []
+      }
+    },
+    {
+      "id": "correct-zh-no-op",
+      "title": "Correct Chinese remains unchanged",
+      "action": "correct",
+      "input": "这个功能已经完成，可以开始测试。",
+      "expectedExample": "这个功能已经完成，可以开始测试。",
+      "checks": {
+        "mustChange": false,
+        "mustEqualInput": true,
+        "language": "chinese",
+        "protectedLiterals": [
+          "功能",
+          "开始测试"
+        ],
+        "requiredPatterns": [],
+        "forbiddenPatterns": []
+      }
+    },
+    {
+      "id": "rephrase-zh-remove-filler",
+      "title": "Chinese concise rewrite",
+      "action": "rephrase",
+      "input": "关于这个功能，我个人目前的想法是，我们可能可以考虑先尝试做一个相对比较简单的版本，然后通过实际使用这个简单版本的过程，看看它是否真的能够给用户带来一定程度上的帮助。",
+      "expectedExample": "我建议先做一个简单版本，通过实际使用判断它是否能帮助用户。",
+      "checks": {
+        "mustChange": true,
+        "language": "chinese",
+        "protectedLiterals": [],
+        "requiredPatterns": [
+          "(版本|简版)",
+          "(用户|使用者)"
+        ],
+        "forbiddenPatterns": [],
+        "maximumLengthRatio": 0.75
+      }
+    },
+    {
+      "id": "rephrase-en-direct",
+      "title": "English direct rewrite",
+      "action": "rephrase",
+      "input": "I am writing this message because I want to let you know that the feature is working, but the current experience is not in a state that I would describe as being ready for release.",
+      "expectedExample": "The feature works, but the current experience is not ready for release.",
+      "checks": {
+        "mustChange": true,
+        "language": "english",
+        "protectedLiterals": [
+          "feature"
+        ],
+        "requiredPatterns": [
+          "(?i)\\b(works|working)\\b",
+          "(?i)(not|n[’']t)[^.]{0,60}(ready|release)"
+        ],
+        "forbiddenPatterns": [
+          "(?i)\\bI (am writing|want to let you know)\\b"
+        ],
+        "maximumLengthRatio": 0.75
+      }
+    },
+    {
+      "id": "rephrase-zh-product-risk",
+      "title": "Chinese product assessment",
+      "action": "rephrase",
+      "input": "我们现在已经把本地模型接进输入法了。这个实现从技术角度看没有特别大的问题，不过交互方式是否自然、等待时间是否可以接受，以及用户会不会误触，目前都还没有足够的信息可以作出判断。",
+      "expectedExample": "本地模型已经接入输入法，技术实现基本可行，但交互、等待时间和误触风险仍需实际验证。",
+      "checks": {
+        "mustChange": true,
+        "language": "chinese",
+        "protectedLiterals": [
+          "本地模型",
+          "输入法"
+        ],
+        "requiredPatterns": [
+          "(交互|使用体验)",
+          "等待(时间|时长|延迟)",
+          "(误触|意外触发)"
+        ],
+        "forbiddenPatterns": [],
+        "maximumLengthRatio": 0.85
+      }
+    },
+    {
+      "id": "rephrase-zh-en-code-switch",
+      "title": "Mixed-language concise rewrite",
+      "action": "rephrase",
+      "input": "这个 feature 从技术角度来说目前基本上已经可以正常工作了，但是 the current UX 还没有达到我们认为可以正式 release 的状态。",
+      "expectedExample": "这个 feature 已经可以正常工作，但 the current UX 还没有 ready for release。",
+      "checks": {
+        "mustChange": true,
+        "language": "mixedChineseEnglish",
+        "protectedLiterals": [
+          "feature",
+          "the current UX",
+          "release"
+        ],
+        "requiredPatterns": [],
+        "forbiddenPatterns": [],
+        "maximumLengthRatio": 0.8
+      }
+    },
+    {
+      "id": "correct-zh-de-particles",
+      "title": "Chinese 的/得/地 particles",
+      "action": "correct",
+      "input": "他跑的很快，工作上也总是很认真的完成每一项任务。",
+      "expectedExample": "他跑得很快，工作上也总是很认真地完成每一项任务。",
+      "checks": {
+        "mustChange": true,
+        "language": "chinese",
+        "protectedLiterals": [],
+        "requiredPatterns": [
+          "跑得很快",
+          "认真地完成"
+        ],
+        "forbiddenPatterns": [
+          "跑的很快",
+          "认真的完成"
+        ]
+      }
+    },
+    {
+      "id": "correct-zh-measure-words",
+      "title": "Chinese measure words",
+      "action": "correct",
+      "input": "我昨天买了两个鱼，还租了三张车。",
+      "expectedExample": "我昨天买了两条鱼，还租了三辆车。",
+      "checks": {
+        "mustChange": true,
+        "language": "chinese",
+        "protectedLiterals": [],
+        "requiredPatterns": [
+          "两条鱼",
+          "三辆车"
+        ],
+        "forbiddenPatterns": [
+          "两个鱼",
+          "三张车"
+        ]
+      }
+    },
+    {
+      "id": "correct-mixed-punctuation",
+      "title": "Full-width punctuation in mixed text",
+      "action": "correct",
+      "input": "我们把 timeout 从 30s 改成 60s,然后重启了 service。这个 bug 应该就解决了.",
+      "expectedExample": "我们把 timeout 从 30s 改成 60s，然后重启了 service。这个 bug 应该就解决了。",
+      "checks": {
+        "mustChange": true,
+        "language": "mixedChineseEnglish",
+        "protectedLiterals": [
+          "timeout",
+          "30s",
+          "60s",
+          "service",
+          "bug"
+        ],
+        "requiredPatterns": [
+          "60s，",
+          "解决了。"
+        ],
+        "forbiddenPatterns": [
+          "60s,",
+          "解决了\\."
+        ]
+      }
+    },
+    {
+      "id": "correct-zh-long-multi-error",
+      "title": "Sustained correction across a paragraph",
+      "action": "correct",
+      "input": "这个项目的进度已经严重落后，主要原因是需求变更太频繁，团队成员之间的沟通也不够充份。我们需要重新评估时间安排，并且尽块确定最终的功能范围。如果继续这样下去，交付日期恐怕难以保正。",
+      "expectedExample": "这个项目的进度已经严重落后，主要原因是需求变更太频繁，团队成员之间的沟通也不够充分。我们需要重新评估时间安排，并且尽快确定最终的功能范围。如果继续这样下去，交付日期恐怕难以保证。",
+      "checks": {
+        "mustChange": true,
+        "language": "chinese",
+        "protectedLiterals": [],
+        "requiredPatterns": [
+          "充分",
+          "尽快",
+          "保证"
+        ],
+        "forbiddenPatterns": [
+          "充份",
+          "尽块",
+          "保正"
+        ]
+      }
+    },
+    {
+      "id": "correct-mixed-no-op",
+      "title": "Correct mixed text is left alone",
+      "action": "correct",
+      "input": "这个 PR 已经 merge 到 main 分支了，CI 全部通过。",
+      "expectedExample": "这个 PR 已经 merge 到 main 分支了，CI 全部通过。",
+      "checks": {
+        "mustChange": false,
+        "mustEqualInput": true,
+        "language": "mixedChineseEnglish",
+        "protectedLiterals": [
+          "PR",
+          "merge",
+          "main",
+          "CI"
+        ],
+        "requiredPatterns": [],
+        "forbiddenPatterns": []
+      }
+    },
+    {
+      "id": "correct-en-uncountable",
+      "title": "English uncountable nouns",
+      "action": "correct",
+      "input": "There was many informations in the report, and the feedbacks from customers were mostly positive.",
+      "expectedExample": "There was much information in the report, and the feedback from customers was mostly positive.",
+      "checks": {
+        "mustChange": true,
+        "language": "english",
+        "protectedLiterals": [],
+        "requiredPatterns": [
+          "(?i)much information",
+          "(?i)feedback from customers was"
+        ],
+        "forbiddenPatterns": [
+          "(?i)informations",
+          "(?i)feedbacks",
+          "(?i)many information\\b"
+        ]
+      }
+    },
+    {
+      "id": "rephrase-en-technical-precision",
+      "title": "Rephrase without damaging numbers",
+      "action": "rephrase",
+      "input": "What I wanted to say here is that the p99 latency, which is currently sitting at around 1.7 seconds, is something that we probably need to bring down to under 800ms before we can go ahead and ship this to production.",
+      "expectedExample": "We need to cut p99 latency from 1.7 seconds to under 800ms before shipping to production.",
+      "checks": {
+        "mustChange": true,
+        "language": "english",
+        "protectedLiterals": [
+          "p99"
+        ],
+        "requiredPatterns": [
+          "1\\.7",
+          "800\\s?ms",
+          "(?i)production"
+        ],
+        "forbiddenPatterns": [
+          "(?i)what I wanted to say",
+          "(?i)go ahead and"
+        ],
+        "maximumLengthRatio": 0.75
+      }
+    },
+    {
+      "id": "rephrase-mixed-inline-code",
+      "title": "Mixed rephrase preserving inline code",
+      "action": "rephrase",
+      "input": "我个人觉得目前这个 `retryPolicy` 的默认配置可能不是特别合理，因为它在遇到 5xx 的时候会一直不停地重试下去，这样的话有可能会把下游的服务给打挂掉。",
+      "expectedExample": "`retryPolicy` 的默认配置不合理：遇到 5xx 会无限重试，可能打挂下游服务。",
+      "checks": {
+        "mustChange": true,
+        "language": "mixedChineseEnglish",
+        "protectedLiterals": [
+          "`retryPolicy`",
+          "5xx"
+        ],
+        "requiredPatterns": [
+          "重试"
+        ],
+        "forbiddenPatterns": [
+          "我个人觉得"
+        ],
+        "maximumLengthRatio": 0.75
+      }
+    }
+  ]
+}

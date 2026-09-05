@@ -52,6 +52,7 @@ struct FuzzySettingsView: View {
             .padding(28)
             .frame(maxWidth: 640, alignment: .leading)
         }
+        .scrollIndicators(.never)
     }
 
     // MARK: Apply & Restart
@@ -80,23 +81,14 @@ struct FuzzySettingsView: View {
 
     private func apply() {
         applyState = .applying
-        SettingsStore.saveSpellerRules(rules)
-        SettingsStore.saveAsciiPhrases(phrases)
-        RimeSpellerPatch.write(rules: rules, asciiPhrases: phrases, in: RimeSpellerPatch.userDirectory)
-        let process = Process()
-        process.executableURL = URL(fileURLWithPath: "/usr/bin/killall")
-        process.arguments = ["HAL"]
-        do {
-            try process.run()
-            process.waitUntilExit()
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) {
-                let appURL = URL(fileURLWithPath: NSHomeDirectory())
-                    .appendingPathComponent("Library/Input Methods/HAL_input.app")
-                applyState = NSWorkspace.shared.open(appURL) ? .applied : .failed
-                resetApplyState()
-            }
-        } catch {
-            applyState = .failed
+        RimeApplyRestart.apply {
+            SettingsStore.saveSpellerRules(rules)
+            SettingsStore.saveAsciiPhrases(phrases)
+            RimeSpellerPatch.write(rules: rules, asciiPhrases: phrases,
+                                   pageSize: SettingsStore.load().candidatePageSize,
+                                   in: RimeSpellerPatch.userDirectory)
+        } completion: { success in
+            applyState = success ? .applied : .failed
             resetApplyState()
         }
     }

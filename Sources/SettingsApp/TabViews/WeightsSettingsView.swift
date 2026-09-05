@@ -27,6 +27,7 @@ struct WeightsSettingsView: View {
             .padding(28)
             .frame(maxWidth: 640, alignment: .leading)
         }
+        .scrollIndicators(.never)
         .onChange(of: rules) { _, newRules in
             guard !hasInvalidRule else { return }
             SettingsStore.saveWeightedCandidates(newRules)

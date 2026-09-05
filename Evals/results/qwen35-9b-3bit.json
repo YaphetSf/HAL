@@ -1,0 +1,189 @@
+{
+  "suite": "HAL Local Rewrite",
+  "suiteVersion": 6,
+  "promptVersion": "hal-rewrite-capability-v1",
+  "promptStyle": "hal",
+  "backend": "mlx-lm 0.31.3",
+  "platform": "macOS-26.5-arm64-arm-64bit-Mach-O",
+  "model": "/Users/ding/Developer/LLMs/HAL/baselines/general/Qwen3.5-9B-3bit",
+  "profile": "hal",
+  "recordedAt": "2026-08-29T12:16:46Z",
+  "runsPerCase": 1,
+  "modelLoadMs": 913,
+  "score": {
+    "passed": 6,
+    "attempted": 10,
+    "skipped": []
+  },
+  "latency": {
+    "firstRequestTtftMs": 525,
+    "firstRequestTotalMs": 816,
+    "warmTtftMs": 438,
+    "warmTotalMs": 630
+  },
+  "peakMemoryGb": 4.787,
+  "cases": [
+    {
+      "id": "correct-en-grammar",
+      "title": "English grammar and tense",
+      "action": "correct",
+      "language": "english",
+      "run": 1,
+      "passed": false,
+      "output": "Yesterday I went to the office early because there were too many works to finish. My manager asked me if the reports were ready, but I haven't completed it yet.",
+      "violations": [
+        "missing required pattern: (?i)\\bwas too much work\\b",
+        "missing required pattern: (?i)\\breport was ready\\b",
+        "contains forbidden pattern: (?i)too many works"
+      ],
+      "firstTokenMs": 525,
+      "totalMs": 816,
+      "promptTokens": 342,
+      "generatedTokens": 35,
+      "peakMemoryGb": 4.718
+    },
+    {
+      "id": "correct-zh-en-code-switch",
+      "title": "Chinese-English code switching",
+      "action": "correct",
+      "language": "mixedChineseEnglish",
+      "run": 1,
+      "passed": false,
+      "output": "这个 feature 已经基本完成了，但 there is still a few edge cases 没有处理，比如用户改变选区以后，旧的 results 可能会覆盖新的文字。",
+      "violations": [
+        "missing required pattern: (?i)there are still (a few|some) edge cases",
+        "contains forbidden pattern: (?i)there is still a few edge case"
+      ],
+      "firstTokenMs": 431,
+      "totalMs": 723,
+      "promptTokens": 350,
+      "generatedTokens": 35,
+      "peakMemoryGb": 4.735
+    },
+    {
+      "id": "correct-preserve-literals",
+      "title": "Names, versions, dates, and inline code",
+      "action": "correct",
+      "language": "english",
+      "run": 1,
+      "passed": true,
+      "output": "HAL 0.1.4 will be released on August 30, and it requires macOS 26. The command `scripts/rebuild-dev.sh` should not be changed.",
+      "violations": [],
+      "firstTokenMs": 431,
+      "totalMs": 757,
+      "promptTokens": 346,
+      "generatedTokens": 39,
+      "peakMemoryGb": 4.727
+    },
+    {
+      "id": "correct-zh-typos",
+      "title": "Chinese spelling correction",
+      "action": "correct",
+      "language": "chinese",
+      "run": 1,
+      "passed": true,
+      "output": "这份报告我已经检查过了，没有发现明显问题。",
+      "violations": [],
+      "firstTokenMs": 430,
+      "totalMs": 532,
+      "promptTokens": 331,
+      "generatedTokens": 12,
+      "peakMemoryGb": 4.695
+    },
+    {
+      "id": "correct-en-no-op",
+      "title": "Correct English remains unchanged",
+      "action": "correct",
+      "language": "english",
+      "run": 1,
+      "passed": true,
+      "output": "The feature works locally and preserves the selected text.",
+      "violations": [],
+      "firstTokenMs": 401,
+      "totalMs": 495,
+      "promptTokens": 318,
+      "generatedTokens": 11,
+      "peakMemoryGb": 4.668
+    },
+    {
+      "id": "correct-zh-no-op",
+      "title": "Correct Chinese remains unchanged",
+      "action": "correct",
+      "language": "chinese",
+      "run": 1,
+      "passed": true,
+      "output": "这个功能已经完成，可以开始测试。",
+      "violations": [],
+      "firstTokenMs": 428,
+      "totalMs": 504,
+      "promptTokens": 327,
+      "generatedTokens": 9,
+      "peakMemoryGb": 4.686
+    },
+    {
+      "id": "rephrase-zh-remove-filler",
+      "title": "Chinese concise rewrite",
+      "action": "rephrase",
+      "language": "chinese",
+      "run": 1,
+      "passed": false,
+      "output": "我建议先做一个简单版本，再通过实际使用看看它能否真正帮上忙。",
+      "violations": [
+        "missing required pattern: (用户|使用者)"
+      ],
+      "firstTokenMs": 456,
+      "totalMs": 608,
+      "promptTokens": 368,
+      "generatedTokens": 18,
+      "peakMemoryGb": 4.773
+    },
+    {
+      "id": "rephrase-en-direct",
+      "title": "English direct rewrite",
+      "action": "rephrase",
+      "language": "english",
+      "run": 1,
+      "passed": true,
+      "output": "I'm writing this to let you know the feature works, but it's not ready for release.",
+      "violations": [],
+      "firstTokenMs": 455,
+      "totalMs": 631,
+      "promptTokens": 356,
+      "generatedTokens": 21,
+      "peakMemoryGb": 4.748
+    },
+    {
+      "id": "rephrase-zh-product-risk",
+      "title": "Chinese product assessment",
+      "action": "rephrase",
+      "language": "chinese",
+      "run": 1,
+      "passed": true,
+      "output": "我们可以先把本地模型接进输入法，技术上看没问题，但交互是否自然、等待时间能否接受、用户会不会误触，目前还无法判断。",
+      "violations": [],
+      "firstTokenMs": 457,
+      "totalMs": 733,
+      "promptTokens": 375,
+      "generatedTokens": 33,
+      "peakMemoryGb": 4.787
+    },
+    {
+      "id": "rephrase-zh-en-code-switch",
+      "title": "Mixed-language concise rewrite",
+      "action": "rephrase",
+      "language": "mixedChineseEnglish",
+      "run": 1,
+      "passed": false,
+      "output": "这个 feature 从技术角度来说目前基本上已经可以正常工作了，但是 the current UX 还没有达到我们认为可以正式 release 的状态。",
+      "violations": [
+        "output did not change",
+        "length ratio 1.00 exceeds 0.80"
+      ],
+      "firstTokenMs": 454,
+      "totalMs": 689,
+      "promptTokens": 354,
+      "generatedTokens": 28,
+      "peakMemoryGb": 4.744
+    }
+  ]
+}

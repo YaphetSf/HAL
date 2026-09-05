@@ -10,6 +10,7 @@ struct ControlCenterView: View {
         case fuzzy
         case weights
         case english
+        case aiEdit
         case about
 
         var id: Self { self }
@@ -21,6 +22,7 @@ struct ControlCenterView: View {
             case .fuzzy: "Fuzzy Pinyin"
             case .weights: "Weights"
             case .english: "EN+"
+            case .aiEdit: "AI Editing"
             case .about: "About"
             }
         }
@@ -32,6 +34,7 @@ struct ControlCenterView: View {
             case .fuzzy: "character.magnify"
             case .weights: "arrow.up.arrow.down"
             case .english: "text.bubble"
+            case .aiEdit: "arrow.2.squarepath"
             case .about: "info.circle"
             }
         }
@@ -77,6 +80,7 @@ struct ControlCenterView: View {
             case .fuzzy: FuzzySettingsView(scheme: scheme)
             case .weights: WeightsSettingsView(scheme: scheme)
             case .english: EnglishSettingsView(scheme: scheme)
+            case .aiEdit: AIEditSettingsView(scheme: scheme)
             case .about: AboutView(scheme: scheme)
             }
         }

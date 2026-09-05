@@ -149,4 +149,49 @@ final class RimeEngineTests: XCTestCase {
         XCTAssertEqual(committed.commitText, "schematics")
         XCTAssertNil(committed.composition)
     }
+
+    /// D21: writing `menu/page_size` into the patch and redeploying changes how many
+    /// candidates librime puts on one page — the real end-to-end path for the
+    /// Appearance card's Apply & Restart. Settings are written first, matching what the
+    /// Apply button does before the relaunch (`prepareUserDirectory` re-derives the patch
+    /// from Settings.json on startup). The deterministic artifact is the rebuilt schema in
+    /// the deploy directory, which is exactly what a new rime session reads its page size from.
+    func testPageSizePatchChangesMenuSize() throws {
+        SettingsStore.saveCandidatePageSize(3)
+        RimeSpellerPatch.write(rules: [], asciiPhrases: [],
+                               pageSize: SettingsStore.load().candidatePageSize,
+                               in: Self.userDirectory)
+        let root = URL(fileURLWithPath: #filePath)
+            .deletingLastPathComponent().deletingLastPathComponent().deletingLastPathComponent()
+        RimeRuntime.stop()
+        // Earlier tests in this class have already deployed this directory, and librime is
+        // free to decide the deploy it holds is still current — which leaves the schema
+        // built before the page size existed, carrying rime-ice's own page_size. Dropping
+        // the build directory is what makes this test measure the patch and not that call.
+        try? FileManager.default.removeItem(
+            at: Self.userDirectory.appendingPathComponent("build"))
+        RimeRuntime.start(sharedDataDir: root.appendingPathComponent("Rime/rime-ice"),
+                          userDataDir: Self.userDirectory)
+
+        let builtSchema = Self.userDirectory
+            .appendingPathComponent("build/rime_ice.schema.yaml")
+        let built = try String(contentsOf: builtSchema, encoding: .utf8)
+        let pageLine = try XCTUnwrap(
+            built.split(separator: "\n").first { $0.contains("page_size") })
+        XCTAssertTrue(pageLine.contains("page_size: 3"),
+                      "deployed schema should carry page_size 3, got '\(pageLine)'")
+
+        let engine = RimeEngine()
+        var state: EngineState?
+        for character in "nihao" {
+            state = engine.process(keysym: Int32(character.unicodeScalars.first!.value), modifiers: 0)
+        }
+        let candidates = try XCTUnwrap(state?.candidates)
+        XCTAssertEqual(candidates.count, 3, "page_size 3 should yield 3 candidates, got \(candidates.map(\.text))")
+        XCTAssertEqual(state?.page.hasNext, true)
+
+        // Put the page size back so the deploy this test leaves behind doesn't decide
+        // what a later test in the class starts from.
+        SettingsStore.saveCandidatePageSize(UserSettings.defaultCandidatePageSize)
+    }
 }

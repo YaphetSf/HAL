@@ -24,6 +24,7 @@ struct HomeView: View {
             .padding(28)
             .frame(maxWidth: 680, alignment: .leading)
         }
+        .scrollIndicators(.never)
         .onAppear { halEnabled = HALInputSourceStatus.isEnabled }
         .onReceive(DistributedNotificationCenter.default().publisher(
             for: Notification.Name(kTISNotifyEnabledKeyboardInputSourcesChanged as String))) { _ in
@@ -96,6 +97,7 @@ struct HomeView: View {
                 .foregroundStyle(.tertiary)
             shortcutRow(keys: ["Caps Lock"], description: "Switch between Chinese and English")
             shortcutRow(keys: ["⇧", "Caps Lock"], description: "Switch between EN and EN+")
+            shortcutRow(keys: ["⌥", "Caps Lock"], description: "Edit selected text with AI")
             shortcutRow(keys: ["←", "→"], description: "Pick an EN+ suggestion")
             shortcutRow(keys: ["Tab"], description: "Accept the suggestion")
         }

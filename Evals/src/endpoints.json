@@ -1,0 +1,20 @@
+{
+  "comment": "Endpoints the eval can measure. HAL never ships, downloads, or runs model weights (D28); every entry here is a server someone else operates. Adding a model means adding a URL, not a checkpoint path.",
+  "endpoints": {
+    "m3u-qwen36-35b": {
+      "url": "http://100.106.252.42:8902/v1/chat/completions",
+      "model": null,
+      "note": "M3 Ultra over Tailscale (DERP-relayed from home, ~400 ms floor). Start with: mlx_lm.server --model <dir> --host 0.0.0.0 --port 8902 --chat-template-args '{\"enable_thinking\":false}'"
+    },
+    "m3u-tb-qwen36-35b": {
+      "url": "http://10.0.0.2:8902/v1/chat/completions",
+      "model": null,
+      "note": "Same server over the Thunderbolt bridge — office hours only, cable plugged in. Floor drops from ~400 ms (DERP relay) to tens of ms; never mix the two transports in one latency comparison."
+    },
+    "local": {
+      "url": "http://127.0.0.1:8901/v1/chat/completions",
+      "model": null,
+      "note": "Any server on this machine: mlx_lm.server, LM Studio, Ollama, llama.cpp."
+    }
+  }
+}

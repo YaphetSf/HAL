@@ -2,21 +2,21 @@ import SwiftUI
 
 /// The original D24 tennis serve, kept as the skin behind the Tennis Serve toggle (D26).
 /// Appearance, animation, duration, canvas and caret anchoring all live in this one file.
-struct ModeFeedbackServeEffect: View {
+struct SwitchAnimationServeEffect: View {
     /// Infrastructure reads these three values, but owns none of them.
     static let canvasSize = CGSize(width: 150, height: 62)
     static let visibilityDuration: TimeInterval = 0.86
 
-    let presentation: ModeFeedbackPresentation
-    let horizontalDirection: ModeFeedbackHorizontalDirection
-    let verticalDirection: ModeFeedbackVerticalDirection
+    let presentation: SwitchAnimationPresentation
+    let horizontalDirection: SwitchAnimationHorizontalDirection
+    let verticalDirection: SwitchAnimationVerticalDirection
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
         Group {
             if reduceMotion {
-                ReducedModeFeedbackEffect(presentation: presentation,
+                ReducedSwitchAnimationEffect(presentation: presentation,
                                           horizontalDirection: horizontalDirection,
                                           verticalDirection: verticalDirection)
             } else {
@@ -32,17 +32,17 @@ struct ModeFeedbackServeEffect: View {
     /// Keeps the launch flare aligned with the caret and flips the serve toward whichever
     /// side of the screen has room. The effect normally sits just below the input line and
     /// mirrors above it when the bottom edge is in the way.
-    static func placement(for caret: CGRect, in visibleFrame: CGRect) -> ModeFeedbackPlacement {
+    static func placement(for caret: CGRect, in visibleFrame: CGRect) -> SwitchAnimationPlacement {
         let rightRoom = visibleFrame.maxX - caret.minX
         let leftRoom = caret.minX - visibleFrame.minX
-        let horizontal: ModeFeedbackHorizontalDirection = rightRoom >= canvasSize.width * 0.82
+        let horizontal: SwitchAnimationHorizontalDirection = rightRoom >= canvasSize.width * 0.82
             || rightRoom >= leftRoom ? .right : .left
         let launchX = horizontal == .right ? Metrics.launchInset
             : canvasSize.width - Metrics.launchInset
 
         let belowTrailScreenY = caret.minY - Metrics.caretGap
         let belowOriginY = belowTrailScreenY - canvasSize.height + Metrics.trailY
-        let vertical: ModeFeedbackVerticalDirection = belowOriginY >= visibleFrame.minY
+        let vertical: SwitchAnimationVerticalDirection = belowOriginY >= visibleFrame.minY
             ? .below : .above
         let trailY = vertical == .below ? Metrics.trailY
             : canvasSize.height - Metrics.trailY
@@ -56,20 +56,20 @@ struct ModeFeedbackServeEffect: View {
                     max(visibleFrame.minX, visibleFrame.maxX - canvasSize.width))
         let y = min(max(proposed.y, visibleFrame.minY),
                     max(visibleFrame.minY, visibleFrame.maxY - canvasSize.height))
-        return ModeFeedbackPlacement(origin: CGPoint(x: x, y: y),
+        return SwitchAnimationPlacement(origin: CGPoint(x: x, y: y),
                                      horizontalDirection: horizontal,
                                      verticalDirection: vertical)
     }
 }
 
-enum ModeFeedbackHorizontalDirection: Sendable {
+enum SwitchAnimationHorizontalDirection: Sendable {
     case left
     case right
 
     var sign: CGFloat { self == .right ? 1 : -1 }
 }
 
-enum ModeFeedbackVerticalDirection: Sendable {
+enum SwitchAnimationVerticalDirection: Sendable {
     case above
     case below
 
@@ -77,10 +77,10 @@ enum ModeFeedbackVerticalDirection: Sendable {
     var contentSign: CGFloat { self == .below ? 1 : -1 }
 }
 
-struct ModeFeedbackPlacement: Sendable {
+struct SwitchAnimationPlacement: Sendable {
     let origin: CGPoint
-    let horizontalDirection: ModeFeedbackHorizontalDirection
-    let verticalDirection: ModeFeedbackVerticalDirection
+    let horizontalDirection: SwitchAnimationHorizontalDirection
+    let verticalDirection: SwitchAnimationVerticalDirection
 }
 
 private enum Metrics {
@@ -94,16 +94,16 @@ private enum Metrics {
 // MARK: - Full-motion experimental skin
 
 private struct CaretServeEffect: View {
-    let presentation: ModeFeedbackPresentation
-    let horizontalDirection: ModeFeedbackHorizontalDirection
-    let verticalDirection: ModeFeedbackVerticalDirection
+    let presentation: SwitchAnimationPresentation
+    let horizontalDirection: SwitchAnimationHorizontalDirection
+    let verticalDirection: SwitchAnimationVerticalDirection
 
     @State private var trigger: UInt = 0
 
     var body: some View {
         Color.clear
-            .frame(width: ModeFeedbackServeEffect.canvasSize.width,
-                   height: ModeFeedbackServeEffect.canvasSize.height)
+            .frame(width: SwitchAnimationServeEffect.canvasSize.width,
+                   height: SwitchAnimationServeEffect.canvasSize.height)
             .keyframeAnimator(initialValue: ServeMotion(), trigger: trigger) { content, motion in
                 content.overlay {
                     CaretServeFrame(presentation: presentation,
@@ -212,20 +212,20 @@ private struct ServeMotion {
 }
 
 private struct CaretServeFrame: View {
-    let presentation: ModeFeedbackPresentation
-    let horizontalDirection: ModeFeedbackHorizontalDirection
-    let verticalDirection: ModeFeedbackVerticalDirection
+    let presentation: SwitchAnimationPresentation
+    let horizontalDirection: SwitchAnimationHorizontalDirection
+    let verticalDirection: SwitchAnimationVerticalDirection
     let motion: ServeMotion
 
     private var horizontalSign: CGFloat { horizontalDirection.sign }
     private var verticalSign: CGFloat { verticalDirection.contentSign }
     private var launchX: CGFloat {
         horizontalDirection == .right ? Metrics.launchInset
-            : ModeFeedbackServeEffect.canvasSize.width - Metrics.launchInset
+            : SwitchAnimationServeEffect.canvasSize.width - Metrics.launchInset
     }
     private var trailY: CGFloat {
         verticalDirection == .below ? Metrics.trailY
-            : ModeFeedbackServeEffect.canvasSize.height - Metrics.trailY
+            : SwitchAnimationServeEffect.canvasSize.height - Metrics.trailY
     }
     private var landingX: CGFloat { launchX + horizontalSign * Metrics.travel }
     private var badgeY: CGFloat { trailY + verticalSign * 20 }
@@ -251,8 +251,8 @@ private struct CaretServeFrame: View {
                 .position(x: landingX + horizontalSign * 10, y: badgeY)
             sparkBurst
         }
-        .frame(width: ModeFeedbackServeEffect.canvasSize.width,
-               height: ModeFeedbackServeEffect.canvasSize.height)
+        .frame(width: SwitchAnimationServeEffect.canvasSize.width,
+               height: SwitchAnimationServeEffect.canvasSize.height)
     }
 
     private var trailGlow: some View {
@@ -338,10 +338,10 @@ private struct Spark: Identifiable {
 
 // MARK: - Reduced Motion
 
-private struct ReducedModeFeedbackEffect: View {
-    let presentation: ModeFeedbackPresentation
-    let horizontalDirection: ModeFeedbackHorizontalDirection
-    let verticalDirection: ModeFeedbackVerticalDirection
+private struct ReducedSwitchAnimationEffect: View {
+    let presentation: SwitchAnimationPresentation
+    let horizontalDirection: SwitchAnimationHorizontalDirection
+    let verticalDirection: SwitchAnimationVerticalDirection
 
     @State private var trigger: UInt = 0
 
@@ -356,8 +356,8 @@ private struct ReducedModeFeedbackEffect: View {
         let badgeY: CGFloat = verticalDirection == .below ? 38 : 24
 
         Color.clear
-            .frame(width: ModeFeedbackServeEffect.canvasSize.width,
-                   height: ModeFeedbackServeEffect.canvasSize.height)
+            .frame(width: SwitchAnimationServeEffect.canvasSize.width,
+                   height: SwitchAnimationServeEffect.canvasSize.height)
             .keyframeAnimator(initialValue: CGFloat.zero, trigger: trigger) { content, opacity in
                 content.overlay {
                     ModeBadge(mode: mode,
@@ -382,7 +382,7 @@ private struct ReducedModeFeedbackEffect: View {
 // MARK: - Skin pieces
 
 private struct ModeBadge: View {
-    let mode: ModeFeedbackMode
+    let mode: SwitchAnimationMode
     let accent: LinearGradient
     let glow: Color
 
@@ -414,7 +414,7 @@ private struct ModeBadge: View {
 }
 
 private struct BallMark: View {
-    let mode: ModeFeedbackMode
+    let mode: SwitchAnimationMode
     let accent: LinearGradient
     let glow: Color
     let size: CGFloat
@@ -438,7 +438,7 @@ private struct BallMark: View {
     }
 }
 
-private extension ModeFeedbackMode {
+private extension SwitchAnimationMode {
     var label: String {
         switch self {
         case .chinese: return "中"
@@ -464,14 +464,14 @@ private extension RGB {
 #Preview("Caret serve") {
     ZStack {
         Color.black
-        ModeFeedbackServeEffect(
-            presentation: ModeFeedbackPresentation(id: 1,
+        SwitchAnimationServeEffect(
+            presentation: SwitchAnimationPresentation(id: 1,
                                                    mode: .englishAssist,
                                                    scheme: .aurora),
             horizontalDirection: .right,
             verticalDirection: .below
         )
     }
-    .frame(width: ModeFeedbackServeEffect.canvasSize.width,
-           height: ModeFeedbackServeEffect.canvasSize.height)
+    .frame(width: SwitchAnimationServeEffect.canvasSize.width,
+           height: SwitchAnimationServeEffect.canvasSize.height)
 }

@@ -1,0 +1,62 @@
+{
+  "suite": "HAL Local Rewrite",
+  "suiteVersion": 6,
+  "promptVersion": null,
+  "promptStyle": "native",
+  "backend": "transformers 5.15.0",
+  "platform": "macOS-26.5-arm64-arm-64bit-Mach-O",
+  "model": "/Users/ding/Developer/LLMs/HAL/baselines/chinese/MacBERT4CSC-base",
+  "adapter": null,
+  "profile": "chinese-csc",
+  "device": "mps",
+  "recordedAt": "2026-08-29T11:55:43Z",
+  "runsPerCase": 1,
+  "modelLoadMs": 420,
+  "score": {
+    "passed": 2,
+    "attempted": 2,
+    "skipped": [
+      "correct-en-grammar",
+      "correct-zh-en-code-switch",
+      "correct-preserve-literals",
+      "correct-en-no-op",
+      "rephrase-zh-remove-filler",
+      "rephrase-en-direct",
+      "rephrase-zh-product-risk",
+      "rephrase-zh-en-code-switch"
+    ]
+  },
+  "latency": {
+    "firstRequestTotalMs": 67,
+    "warmTotalMs": 11
+  },
+  "peakMemoryGb": 1.085,
+  "cases": [
+    {
+      "id": "correct-zh-typos",
+      "title": "Chinese spelling correction",
+      "action": "correct",
+      "language": "chinese",
+      "run": 1,
+      "passed": true,
+      "output": "这份报告我已经检查过了，没有发现明显问题。",
+      "violations": [],
+      "totalMs": 67,
+      "generatedTokens": 23,
+      "peakMemoryGb": 1.085
+    },
+    {
+      "id": "correct-zh-no-op",
+      "title": "Correct Chinese remains unchanged",
+      "action": "correct",
+      "language": "chinese",
+      "run": 1,
+      "passed": true,
+      "output": "这个功能已经完成，可以开始测试。",
+      "violations": [],
+      "totalMs": 11,
+      "generatedTokens": 18,
+      "peakMemoryGb": 1.085
+    }
+  ]
+}

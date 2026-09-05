@@ -15,6 +15,7 @@ struct EnglishSettingsView: View {
             .padding(28)
             .frame(maxWidth: 640, alignment: .leading)
         }
+        .scrollIndicators(.never)
         .onChange(of: delay) { _, newDelay in
             SettingsStore.saveEnglishCompletionDelay(newDelay)
         }

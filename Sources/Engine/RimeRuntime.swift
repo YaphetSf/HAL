@@ -86,8 +86,10 @@ enum RimeRuntime {
     /// never overwritten: everything in here is the user's to edit (D12).
     private static func prepareUserDirectory(_ url: URL) throws {
         try FileManager.default.createDirectory(at: url, withIntermediateDirectories: true)
-        RimeSpellerPatch.write(rules: SettingsStore.load().spellerRules,
-                               asciiPhrases: SettingsStore.load().asciiPhrases,
+        let settings = SettingsStore.load()
+        RimeSpellerPatch.write(rules: settings.spellerRules,
+                               asciiPhrases: settings.asciiPhrases,
+                               pageSize: settings.candidatePageSize,
                                in: url)
         let patch = url.appendingPathComponent("default.custom.yaml")
         guard !FileManager.default.fileExists(atPath: patch.path) else { return }

@@ -3,7 +3,7 @@ import AppKit
 /// What a mode switch plays (D26) — one choice, not a skin switch plus an artwork switch.
 /// `miku` is the artwork HAL ships with and starts on, `custom` is the user's own import,
 /// and `serve` is the original tennis animation, which brings its own ball.
-enum ModeFeedbackChoice: Equatable, Codable {
+enum SwitchAnimationChoice: Equatable, Codable {
     case miku
     case serve
     case custom(String)
@@ -39,10 +39,10 @@ enum ModeFeedbackChoice: Equatable, Codable {
     }
 }
 
-/// The user's own mode-feedback artwork (D26). The control center imports it, the input
+/// The user's own switch-animation artwork (D26). The control center imports it, the input
 /// method reads it, and both go through this one type so the file layout and — more
 /// importantly — the fallback story exist in exactly one place.
-enum ModeFeedbackArtwork {
+enum SwitchAnimationArtwork {
     /// The panel draws the artwork at 72pt. Anything bigger than this is a poster the input
     /// method has no business holding in memory, so it is refused at import time.
     static let maximumByteCount = 4 * 1024 * 1024
@@ -116,7 +116,7 @@ enum ModeFeedbackArtwork {
     /// nil means "draw the serve skin's own ball": every way a file can fail — missing,
     /// moved, or no longer decodable — lands here, and none of them is an error the input
     /// method has to handle.
-    static func image(for choice: ModeFeedbackChoice) -> NSImage? {
+    static func image(for choice: SwitchAnimationChoice) -> NSImage? {
         switch choice {
         case .serve:
             return nil

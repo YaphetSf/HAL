@@ -1,0 +1,92 @@
+{
+  "suite": "HAL Local Rewrite",
+  "suiteVersion": 6,
+  "promptVersion": null,
+  "promptStyle": "native",
+  "backend": "transformers 5.15.0",
+  "platform": "macOS-26.5-arm64-arm-64bit-Mach-O",
+  "model": "/Users/ding/Developer/LLMs/HAL/baselines/english/CoEdIT-Large-770M",
+  "adapter": null,
+  "profile": "coedit",
+  "device": "mps",
+  "recordedAt": "2026-08-29T11:55:41Z",
+  "runsPerCase": 1,
+  "modelLoadMs": 2274,
+  "score": {
+    "passed": 1,
+    "attempted": 4,
+    "skipped": [
+      "correct-zh-en-code-switch",
+      "correct-zh-typos",
+      "correct-zh-no-op",
+      "rephrase-zh-remove-filler",
+      "rephrase-zh-product-risk",
+      "rephrase-zh-en-code-switch"
+    ]
+  },
+  "latency": {
+    "firstRequestTotalMs": 701,
+    "warmTotalMs": 321
+  },
+  "peakMemoryGb": 3.292,
+  "cases": [
+    {
+      "id": "correct-en-grammar",
+      "title": "English grammar and tense",
+      "action": "correct",
+      "language": "english",
+      "run": 1,
+      "passed": false,
+      "output": "Yesterday I went to the office early because there was too many work to finish. My manager asked me if the report was ready, but I haven't completed it yet.",
+      "violations": [
+        "missing required pattern: (?i)\\bwas too much work\\b"
+      ],
+      "totalMs": 701,
+      "generatedTokens": 39,
+      "peakMemoryGb": 3.292
+    },
+    {
+      "id": "correct-preserve-literals",
+      "title": "Names, versions, dates, and inline code",
+      "action": "correct",
+      "language": "english",
+      "run": 1,
+      "passed": false,
+      "output": "HAL 0.1.4 will be released on August 30, and it requires macOS 26. The command scripts/rebuild-dev.sh should not be changed.",
+      "violations": [
+        "did not preserve protected literal: `scripts/rebuild-dev.sh`"
+      ],
+      "totalMs": 453,
+      "generatedTokens": 39,
+      "peakMemoryGb": 3.292
+    },
+    {
+      "id": "correct-en-no-op",
+      "title": "Correct English remains unchanged",
+      "action": "correct",
+      "language": "english",
+      "run": 1,
+      "passed": true,
+      "output": "The feature works locally and preserves the selected text.",
+      "violations": [],
+      "totalMs": 162,
+      "generatedTokens": 13,
+      "peakMemoryGb": 3.292
+    },
+    {
+      "id": "rephrase-en-direct",
+      "title": "English direct rewrite",
+      "action": "rephrase",
+      "language": "english",
+      "run": 1,
+      "passed": false,
+      "output": "I want to let you know that this feature is working, but I don't think that this experience is ready to be released yet.",
+      "violations": [
+        "contains forbidden pattern: (?i)\\bI (am writing|want to let you know)\\b"
+      ],
+      "totalMs": 349,
+      "generatedTokens": 30,
+      "peakMemoryGb": 3.292
+    }
+  ]
+}

@@ -116,6 +116,26 @@ final class UserSettingsTests: XCTestCase {
         XCTAssertEqual(UserSettings(englishCompletionDelay: 1).englishCompletionDelay, 0.3)
     }
 
+    func testCandidatePageSizeDefaultsAndClamps() {
+        XCTAssertEqual(UserSettings().candidatePageSize,
+                       UserSettings.defaultCandidatePageSize)
+        XCTAssertEqual(UserSettings(candidatePageSize: 2).candidatePageSize, 3)
+        XCTAssertEqual(UserSettings(candidatePageSize: 12).candidatePageSize, 9)
+        XCTAssertEqual(UserSettings(candidatePageSize: 7).candidatePageSize, 7)
+    }
+
+    func testCandidatePageSizeRoundTrips() throws {
+        let settings = UserSettings(candidatePageSize: 8)
+        let decoded = try JSONDecoder().decode(UserSettings.self,
+                                               from: JSONEncoder().encode(settings))
+        XCTAssertEqual(decoded.candidatePageSize, 8)
+    }
+
+    func testLegacySettingsWithoutPageSizeDecodeToTheDefault() throws {
+        let legacy = try JSONDecoder().decode(UserSettings.self, from: Data("{}".utf8))
+        XCTAssertEqual(legacy.candidatePageSize, UserSettings.defaultCandidatePageSize)
+    }
+
     func testLegacyFuzzyFlagMigratesToSeededSpellerRule() throws {
         let enabled = try JSONDecoder().decode(UserSettings.self,
                                                from: Data(#"{"fuzzyDinToDing":true}"#.utf8))
@@ -251,5 +271,28 @@ final class RimeSpellerPatchTests: XCTestCase {
         XCTAssertFalse(RimeSpellerPatch.isValidAsciiPhrase("e/g"))
         XCTAssertFalse(RimeSpellerPatch.isValidAsciiPhrase("e。g"))
         XCTAssertNil(RimeSpellerPatch.recognizerPattern(forAsciiPhrases: ["", "e g", ".x"]))
+    }
+
+    func testCustomPageSizeIsWrittenIntoThePatchBlock() throws {
+        RimeSpellerPatch.write(rules: [], asciiPhrases: [],
+                               pageSize: 9, in: directory)
+        XCTAssertTrue(try writtenContent().contains("\"menu/page_size\": 9"))
+    }
+
+    func testDefaultPageSizeIsNotWrittenSoResetStripsTheBlock() throws {
+        RimeSpellerPatch.write(rules: [], asciiPhrases: [],
+                               pageSize: UserSettings.defaultCandidatePageSize, in: directory)
+        XCTAssertFalse(FileManager.default.fileExists(
+            atPath: RimeSpellerPatch.schemaPatchURL(in: directory).path))
+    }
+
+    func testPageSizeSurvivesRewriteAlongsideRules() throws {
+        RimeSpellerPatch.write(rules: [SpellerRule(input: "din", match: "ding")],
+                               asciiPhrases: ["e.g."], pageSize: 7, in: directory)
+        RimeSpellerPatch.write(rules: [SpellerRule(input: "din", match: "ding")],
+                               asciiPhrases: ["e.g."], pageSize: 8, in: directory)
+        let content = try writtenContent()
+        XCTAssertTrue(content.contains("\"menu/page_size\": 8"))
+        XCTAssertFalse(content.contains("\"menu/page_size\": 7"))
     }
 }
