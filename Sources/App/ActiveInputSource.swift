@@ -17,6 +17,7 @@ enum ActiveInputSource {
     private static let burstWindow: TimeInterval = 5
     private static let cooldown: TimeInterval = 30
     private static let retryDelays: [TimeInterval] = [0, 0.15, 0.5]
+    private static let secureInputPollInterval: TimeInterval = 0.25
 
     /// Whether HAL was the active source right before the screen locked — the only case
     /// worth trying to restore on unlock (§6.2). If the user had deliberately switched away
@@ -37,6 +38,7 @@ enum ActiveInputSource {
     nonisolated(unsafe) private static var recoveryTrigger: String?
     nonisolated(unsafe) private static var recentSelectionTimes: [TimeInterval] = []
     nonisolated(unsafe) private static var suppressedUntil: TimeInterval = 0
+    nonisolated(unsafe) private static var isWaitingForSecureInput = false
 
     /// Sets the initial state and subscribes to the distributed notifications this needs:
     /// TIS for every source change, plus screen lock/unlock to enter the recovery path (§6.2 —
@@ -94,6 +96,9 @@ enum ActiveInputSource {
 
         switch sourceID {
         case inputSourceID:
+            if isWaitingForSecureInput {
+                sourceLog.notice("sticky recovery not needed: system restored HAL after secure input app=\(frontmostAppID(), privacy: .public)")
+            }
             shouldKeepHALActive = true
             cancelRecovery()
 
@@ -178,6 +183,22 @@ enum ActiveInputSource {
             return
         }
 
+        // A focused password field turns on secure event input and macOS forces an
+        // ASCII-capable layout until it loses focus; selecting HAL there is reverted within
+        // milliseconds and HAL receives no keys anyway. Poll without spending budget.
+        if IsSecureEventInputEnabled() {
+            if !isWaitingForSecureInput {
+                isWaitingForSecureInput = true
+                sourceLog.notice("sticky recovery waiting for secure input to end trigger=\(trigger, privacy: .public) app=\(frontmostAppID(), privacy: .public)")
+            }
+            scheduleRecovery(trigger: trigger, after: secureInputPollInterval)
+            return
+        }
+        if isWaitingForSecureInput {
+            isWaitingForSecureInput = false
+            sourceLog.notice("sticky recovery resuming after secure input ended trigger=\(trigger, privacy: .public) app=\(frontmostAppID(), privacy: .public)")
+        }
+
         guard consumeSelectionBudget(trigger: trigger) else {
             cancelRecovery()
             return
@@ -239,6 +260,7 @@ enum ActiveInputSource {
         recoveryTimer = nil
         recoveryAttempt = 0
         recoveryTrigger = nil
+        isWaitingForSecureInput = false
     }
 
     private static func halInputSource() -> TISInputSource? {
