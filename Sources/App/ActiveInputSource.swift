@@ -6,12 +6,12 @@ import OSLog
 private let sourceLog = Logger(subsystem: "com.hal.inputmethod", category: "input-source")
 
 /// Watches which input source the system is on and tries to keep HAL selected after macOS
-/// silently hands the keyboard back to British. TIS sometimes accepts a selection globally
-/// without delivering it to the focused client, so recovery is deliberately best-effort and
-/// bounded: a client that refuses HAL must not trigger an infinite source-switch loop (D11).
+/// silently hands the keyboard back to its ASCII fallback layout. TIS sometimes accepts a
+/// selection globally without delivering it to the focused client, so recovery is deliberately
+/// best-effort and bounded: a client that refuses HAL must not trigger an infinite
+/// source-switch loop (D11).
 enum ActiveInputSource {
     private static let inputSourceID = "com.hal.inputmethod.HAL"
-    private static let britishSourceID = "com.apple.keylayout.British"
     private static let maxAttemptsPerRecovery = 3
     private static let maxSelectionsPerBurst = 3
     private static let burstWindow: TimeInterval = 5
@@ -29,6 +29,11 @@ enum ActiveInputSource {
     /// the user is already on another source therefore does not claim the keyboard.
     nonisolated(unsafe) private static var shouldKeepHALActive = false
     nonisolated(unsafe) private static var lastSourceID: String?
+
+    /// Captured whenever HAL is current. It cannot be read after the switch: selecting any
+    /// ASCII-capable layout makes it the most recently used one, so the answer would always
+    /// equal the new source and could not tell the system's fallback from a deliberate pick.
+    nonisolated(unsafe) private static var fallbackSourceID: String?
 
     /// Recovery state lives on the main run loop with the notification callbacks. The recent
     /// selection timestamps span recovery cycles so a client that repeatedly reverts a
@@ -51,6 +56,9 @@ enum ActiveInputSource {
             let sourceID = selectedSourceID()
             lastSourceID = sourceID
             shouldKeepHALActive = sourceID == inputSourceID
+            if shouldKeepHALActive {
+                fallbackSourceID = currentFallbackSourceID()
+            }
             apply(sourceID: sourceID)
         }
         DistributedNotificationCenter.default().addObserver(
@@ -100,16 +108,17 @@ enum ActiveInputSource {
                 sourceLog.notice("sticky recovery not needed: system restored HAL after secure input app=\(frontmostAppID(), privacy: .public)")
             }
             shouldKeepHALActive = true
+            fallbackSourceID = currentFallbackSourceID()
             cancelRecovery()
 
-        case britishSourceID:
+        case _ where isFallback(sourceID):
             guard shouldKeepHALActive, !isScreenLocked else { return }
-            let trigger = previousSourceID == inputSourceID ? "HAL-to-British" : "British-reverted"
+            let trigger = previousSourceID == inputSourceID ? "HAL-to-fallback" : "fallback-reverted"
             scheduleRecovery(trigger: trigger, after: retryDelays[0])
 
         default:
-            // Another non-British input source is an intentional choice. Sticky HAL only
-            // owns the British fallback described by D11.
+            // Any other source is an intentional choice. Sticky HAL only owns the system's
+            // fallback layout described by D11.
             shouldKeepHALActive = false
             cancelRecovery()
         }
@@ -137,7 +146,7 @@ enum ActiveInputSource {
         let sourceID = selectedSourceID()
         lastSourceID = sourceID
         apply(sourceID: sourceID)
-        guard shouldRestore, sourceID == britishSourceID else { return }
+        guard shouldRestore, isFallback(sourceID) else { return }
 
         shouldKeepHALActive = true
         recentSelectionTimes.removeAll()
@@ -159,7 +168,7 @@ enum ActiveInputSource {
         if recoveryTrigger == nil {
             recoveryTrigger = trigger
             recoveryAttempt = 0
-            sourceLog.notice("sticky recovery queued trigger=\(trigger, privacy: .public) app=\(frontmostAppID(), privacy: .public)")
+            sourceLog.notice("sticky recovery queued trigger=\(trigger, privacy: .public) fallback=\(fallbackSourceID ?? "unknown", privacy: .public) app=\(frontmostAppID(), privacy: .public)")
         }
 
         let timer = Timer(timeInterval: delay, repeats: false) { _ in
@@ -177,7 +186,7 @@ enum ActiveInputSource {
         guard let trigger = recoveryTrigger,
               shouldKeepHALActive,
               !isScreenLocked,
-              selectedSourceID() == britishSourceID
+              isFallback(selectedSourceID())
         else {
             cancelRecovery()
             return
@@ -263,19 +272,31 @@ enum ActiveInputSource {
         isWaitingForSecureInput = false
     }
 
+    @MainActor
+    private static func isFallback(_ sourceID: String?) -> Bool {
+        sourceID != nil && sourceID == fallbackSourceID
+    }
+
     private static func halInputSource() -> TISInputSource? {
         guard let list = TISCreateInputSourceList(nil, false)?.takeRetainedValue() as? [TISInputSource]
         else { return nil }
-        return list.first { source in
-            guard let raw = TISGetInputSourceProperty(source, kTISPropertyInputSourceID) else { return false }
-            return Unmanaged<CFString>.fromOpaque(raw).takeUnretainedValue() as String == inputSourceID
-        }
+        return list.first { sourceID(of: $0) == inputSourceID }
     }
 
     private static func selectedSourceID() -> String? {
-        guard let source = TISCopyCurrentKeyboardInputSource()?.takeRetainedValue(),
-              let raw = TISGetInputSourceProperty(source, kTISPropertyInputSourceID)
-        else { return nil }
+        TISCopyCurrentKeyboardInputSource().flatMap { sourceID(of: $0.takeRetainedValue()) }
+    }
+
+    /// The most recently used ASCII-capable keyboard layout: TSM translates keys through it
+    /// while HAL is selected, and macOS drops to it when it pushes HAL out (lock screen,
+    /// secure input, a client refusing HAL). The non-layout variant answers with HAL itself,
+    /// because HAL declares Latn.
+    private static func currentFallbackSourceID() -> String? {
+        TISCopyCurrentASCIICapableKeyboardLayoutInputSource().flatMap { sourceID(of: $0.takeRetainedValue()) }
+    }
+
+    private static func sourceID(of source: TISInputSource) -> String? {
+        guard let raw = TISGetInputSourceProperty(source, kTISPropertyInputSourceID) else { return nil }
         return Unmanaged<CFString>.fromOpaque(raw).takeUnretainedValue() as String
     }
 
