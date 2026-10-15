@@ -106,8 +106,7 @@ struct CandidateView: View {
     }
 }
 
-/// EN+ is intentionally quieter than the Chinese chooser: one completion, no selection
-/// number, and a small reminder that accepting it is optional (D22).
+/// EN+ shows up to three completions without the Chinese chooser's selection numbers.
 struct EnglishCompletionView: View {
     let prefix: String
     let suggestions: [String]
@@ -125,13 +124,6 @@ struct EnglishCompletionView: View {
                                       isHighlighted: index == highlightedIndex,
                                       scheme: scheme)
             }
-
-            Text("← →  Tab")
-                .font(.system(size: 10, weight: .semibold, design: .rounded))
-                .foregroundStyle(scheme.accentEnd.color)
-                .padding(.horizontal, 6)
-                .padding(.vertical, 3)
-                .background(.quaternary, in: Capsule())
         }
         .font(.system(size: 15, design: .rounded))
         .padding(.horizontal, 10)
@@ -159,7 +151,7 @@ struct EnglishCompletionView: View {
             withAnimation(.snappy(duration: 0.2)) { appear = 1 }
         }
         .accessibilityElement(children: .ignore)
-        .accessibilityLabel("English suggestions: \(suggestions.joined(separator: ", ")). Use left and right arrows, then press Tab to accept.")
+        .accessibilityLabel("English suggestions: \(suggestions.joined(separator: ", ")). Press Shift+Tab to cycle, then Tab to accept.")
     }
 }
 

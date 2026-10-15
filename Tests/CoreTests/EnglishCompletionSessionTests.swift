@@ -38,7 +38,7 @@ final class EnglishCompletionSessionTests: XCTestCase {
         XCTAssertEqual(session.prefix, "")
     }
 
-    func testAcceptReturnsOnlyTheMissingSuffixAndClearsState() {
+    func testAcceptReplacesTheTypedPrefixAndClearsState() {
         let session = EnglishCompletionSession()
         _ = session.append("h", caretLocation: 0)
         _ = session.append("e", caretLocation: 1)
@@ -46,7 +46,10 @@ final class EnglishCompletionSessionTests: XCTestCase {
         session.updateSuggestions(["hel", "hello", "help", "held", "helmet"])
 
         XCTAssertEqual(session.suggestions, ["hello", "help", "held"])
-        XCTAssertEqual(session.acceptSuggestion(), "lo")
+        XCTAssertEqual(session.handleSuggestionKey(
+            KeyEvent(keyCode: 0x30, characters: "\t", modifiers: []),
+            selection: NSRange(location: 3, length: 0), visible: true
+        ), .replace(text: "hello", range: NSRange(location: 0, length: 3)))
         XCTAssertEqual(session.prefix, "")
         XCTAssertTrue(session.suggestions.isEmpty)
     }
@@ -68,29 +71,39 @@ final class EnglishCompletionSessionTests: XCTestCase {
         XCTAssertEqual(upper.suggestions, ["HELLO"])
     }
 
-    func testArrowNavigationSelectsOneOfThreeSuggestions() {
+    func testShiftTabSelectsOneOfThreeSuggestions() {
         let session = EnglishCompletionSession()
         _ = session.append("h", caretLocation: 0)
         _ = session.append("e", caretLocation: 1)
         _ = session.append("l", caretLocation: 2)
         session.updateSuggestions(["hello", "help", "held", "helmet"])
 
-        session.moveHighlight(by: 1)
+        _ = session.handleSuggestionKey(
+            KeyEvent(keyCode: 0x30, characters: "\t", modifiers: .shift),
+            selection: NSRange(location: 3, length: 0), visible: true
+        )
         XCTAssertEqual(session.highlightedSuggestion, "help")
-        XCTAssertEqual(session.acceptSuggestion(), "p")
+        XCTAssertEqual(session.handleSuggestionKey(
+            KeyEvent(keyCode: 0x30, characters: "\t", modifiers: []),
+            selection: NSRange(location: 3, length: 0), visible: true
+        ), .replace(text: "help", range: NSRange(location: 0, length: 3)))
     }
 
-    func testArrowNavigationStopsAtCandidateEdges() {
+    func testShiftTabCyclesBackToTheFirstCandidate() {
         let session = EnglishCompletionSession()
         _ = session.append("h", caretLocation: 0)
         _ = session.append("e", caretLocation: 1)
         _ = session.append("l", caretLocation: 2)
         session.updateSuggestions(["hello", "help"])
 
-        session.moveHighlight(by: -1)
         XCTAssertEqual(session.highlightedIndex, 0)
-        session.moveHighlight(by: 20)
+        let shiftTab = KeyEvent(keyCode: 0x30, characters: "\t", modifiers: .shift)
+        _ = session.handleSuggestionKey(shiftTab,
+                                       selection: NSRange(location: 3, length: 0), visible: true)
         XCTAssertEqual(session.highlightedIndex, 1)
+        _ = session.handleSuggestionKey(shiftTab,
+                                       selection: NSRange(location: 3, length: 0), visible: true)
+        XCTAssertEqual(session.highlightedIndex, 0)
     }
 
     func testPunctuationResetsTheWord() {

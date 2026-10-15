@@ -75,7 +75,7 @@ final class ModeStatusItem: NSObject, NSMenuDelegate {
             let next = state.englishProfile == .assist ? "EN+" : "EN"
             modeIndicator.title = "中文 — Caps Lock switches to \(next)"
         } else if state.englishProfile == .assist {
-            modeIndicator.title = "EN+ — ←/→ selects, Tab accepts; ⇧Caps Lock switches to EN"
+            modeIndicator.title = "EN+ — ⇧Tab selects, Tab accepts; ⇧Caps Lock switches to EN"
         } else {
             modeIndicator.title = "EN — ⇧Caps Lock switches to EN+"
         }

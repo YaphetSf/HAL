@@ -1,3 +1,5 @@
+import Foundation
+
 enum EnglishProfile: Equatable {
     case direct
     case assist
@@ -6,6 +8,13 @@ enum EnglishProfile: Equatable {
 /// The part of EN+ that can be tested without IMK or AppKit. It remembers only keys HAL
 /// itself observed in this input session; it never reads surrounding client text (D22).
 final class EnglishCompletionSession {
+    enum SuggestionKeyAction: Equatable {
+        case passThrough
+        case dismiss
+        case showSuggestions
+        case replace(text: String, range: NSRange)
+    }
+
     static let minimumPrefixLength = 3
     static let maximumSuggestionCount = 3
 
@@ -16,6 +25,42 @@ final class EnglishCompletionSession {
 
     var canRequestSuggestion: Bool {
         prefix.count >= Self.minimumPrefixLength
+    }
+
+    /// nil means ordinary typing; the adapter continues observing the host-handled key.
+    func handleSuggestionKey(_ event: KeyEvent, selection: NSRange?,
+                             visible: Bool) -> SuggestionKeyAction? {
+        guard event.modifiers.intersection([.command, .control, .option]).isEmpty else {
+            reset()
+            return .passThrough
+        }
+        switch event.keyCode {
+        case 0x30: // Tab
+            guard visible, let selection, selection.length == 0,
+                  selection.location != NSNotFound,
+                  selection.location == expectedCaretLocation,
+                  selection.location >= prefix.utf16.count,
+                  let suggestion = highlightedSuggestion else {
+                reset()
+                return .passThrough
+            }
+            if event.modifiers.contains(.shift) {
+                highlightedIndex = (highlightedIndex + 1) % suggestions.count
+                return .showSuggestions
+            }
+            let range = NSRange(location: selection.location - prefix.utf16.count,
+                                length: prefix.utf16.count)
+            reset()
+            return .replace(text: suggestion, range: range)
+        case 0x35: // Escape
+            reset()
+            return visible ? .dismiss : .passThrough
+        case 0x7B...0x7E: // All arrows belong to the host editor, including Shift selection.
+            reset()
+            return .passThrough
+        default:
+            return nil
+        }
     }
 
     /// Records one ASCII letter (or an apostrophe inside a word) before the host inserts it.
@@ -72,26 +117,9 @@ final class EnglishCompletionSession {
         highlightedIndex = 0
     }
 
-    func moveHighlight(by offset: Int) {
-        guard !suggestions.isEmpty else { return }
-        highlightedIndex = min(max(highlightedIndex + offset, 0), suggestions.count - 1)
-    }
-
     var highlightedSuggestion: String? {
         guard suggestions.indices.contains(highlightedIndex) else { return nil }
         return suggestions[highlightedIndex]
-    }
-
-    /// Returns only the part not already inserted by the host. Accepting completes and then
-    /// forgets the word, so an IMK controller can never append the same suffix twice.
-    func acceptSuggestion() -> String? {
-        guard let suggestion = highlightedSuggestion else { return nil }
-        let split = suggestion.index(suggestion.startIndex,
-                                     offsetBy: prefix.count,
-                                     limitedBy: suggestion.endIndex) ?? suggestion.endIndex
-        let suffix = String(suggestion[split...])
-        reset()
-        return suffix.isEmpty ? nil : suffix
     }
 
     func reset() {

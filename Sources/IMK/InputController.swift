@@ -304,56 +304,45 @@ final class InputController: IMKInputController {
     // MARK: - English Assist
 
     /// EN passes through here untouched. EN+ also returns false for ordinary typing; it only
-    /// consumes Left/Right, Tab, and Esc only while its own suggestion is visibly active.
+    /// consumes Tab, Shift+Tab, and Esc while its own suggestion is visibly active.
+    /// Arrow keys always dismiss suggestions and remain available to the host editor.
     private func handleEnglish(_ event: NSEvent, client sender: Any!) -> Bool {
         guard englishProfile == .assist else { return false }
 
-        let modifiers = Self.modifiers(from: event.modifierFlags)
-        if !modifiers.intersection([.command, .control, .option]).isEmpty {
-            resetEnglishCompletion()
-            return false
+        let selection = Self.selectionRange(client: sender)
+        if let action = englishCompletion.handleSuggestionKey(Self.keyEvent(from: event),
+                                                               selection: selection,
+                                                               visible: englishSuggestionVisible) {
+            switch action {
+            case .passThrough:
+                resetEnglishCompletion()
+                return false
+            case .dismiss:
+                resetEnglishCompletion()
+                return true
+            case .showSuggestions:
+                showEnglishSuggestions()
+                return true
+            case let .replace(text, range):
+                guard let client = sender as? IMKTextInput else {
+                    resetEnglishCompletion()
+                    return false
+                }
+                resetEnglishCompletion()
+                client.insertText(text, replacementRange: range)
+                log.info("EN+ accepted replacement length=\(text.utf16.count) range=\(NSStringFromRange(range), privacy: .public)")
+                return true
+            }
         }
 
         switch Int(event.keyCode) {
-        case kVK_Tab:
-            guard englishSuggestionVisible,
-                  let suffix = englishCompletion.acceptSuggestion(),
-                  let client = sender as? IMKTextInput else {
-                resetEnglishCompletion()
-                return false
-            }
-            client.insertText(suffix, replacementRange: Self.noRange)
-            englishSuggestionVisible = false
-            MainActor.assumeIsolated { CandidatePanel.shared.hide() }
-            log.info("EN+ accepted suffix=\(suffix, privacy: .public)")
-            return true
-
-        case kVK_Escape:
-            guard englishSuggestionVisible else {
-                resetEnglishCompletion()
-                return false
-            }
-            resetEnglishCompletion()
-            return true
-
-        case kVK_LeftArrow, kVK_RightArrow:
-            guard englishSuggestionVisible else {
-                resetEnglishCompletion()
-                return false
-            }
-            englishCompletion.moveHighlight(by: Int(event.keyCode) == kVK_LeftArrow ? -1 : 1)
-            showEnglishSuggestions()
-            return true
-
         case kVK_Delete:
-            let selection = Self.selectionRange(client: sender)
             englishCompletion.deleteBackward(caretLocation: selection?.location,
                                              selectionLength: selection?.length ?? 0)
             scheduleEnglishRefreshIfNeeded()
             return false
 
         default:
-            let selection = Self.selectionRange(client: sender)
             guard englishCompletion.append(event.characters ?? "",
                                            caretLocation: selection?.location) else {
                 resetEnglishCompletion()
