@@ -1,20 +1,20 @@
 import XCTest
 
-/// Runs against the real librime and the vendored rime-ice snapshot. The first run deploys
-/// the full dictionary set into a temporary directory, which takes a while (PLAN.md §6.1).
+/// Runs against the real librime and rime-ice as HAL ships it. The first run deploys the full
+/// dictionary set into a temporary directory, which takes a while (PLAN.md §6.1).
 final class RimeEngineTests: XCTestCase {
     private static let userDirectory = FileManager.default.temporaryDirectory
         .appendingPathComponent("HALEngineTests-\(UUID().uuidString)")
+    /// Staged by this target's build phase with the same script as the app's (D29).
+    private static let sharedDataDirectory = Bundle(for: RimeEngineTests.self).resourceURL!
+        .appendingPathComponent("RimeData")
 
     /// Points SettingsStore at the throwaway directory so `prepareUserDirectory` derives the
     /// fuzzy patch from test state, never from the developer's real Settings.json.
     override class func setUp() {
         super.setUp()
         SettingsStore.directoryOverride = userDirectory
-        // .../Tests/EngineTests/RimeEngineTests.swift -> repository root
-        let root = URL(fileURLWithPath: #filePath)
-            .deletingLastPathComponent().deletingLastPathComponent().deletingLastPathComponent()
-        RimeRuntime.start(sharedDataDir: root.appendingPathComponent("Rime/rime-ice"),
+        RimeRuntime.start(sharedDataDir: sharedDataDirectory,
                           userDataDir: userDirectory)
     }
 
@@ -81,10 +81,8 @@ final class RimeEngineTests: XCTestCase {
         }
         SettingsStore.saveSpellerRules(rules)
         RimeSpellerPatch.write(rules: rules, asciiPhrases: UserSettings.defaultAsciiPhrases, in: Self.userDirectory)
-        let root = URL(fileURLWithPath: #filePath)
-            .deletingLastPathComponent().deletingLastPathComponent().deletingLastPathComponent()
         RimeRuntime.stop()
-        RimeRuntime.start(sharedDataDir: root.appendingPathComponent("Rime/rime-ice"),
+        RimeRuntime.start(sharedDataDir: Self.sharedDataDirectory,
                           userDataDir: Self.userDirectory)
 
         let withFuzzy = try dinCandidates()
@@ -161,8 +159,6 @@ final class RimeEngineTests: XCTestCase {
         RimeSpellerPatch.write(rules: [], asciiPhrases: [],
                                pageSize: SettingsStore.load().candidatePageSize,
                                in: Self.userDirectory)
-        let root = URL(fileURLWithPath: #filePath)
-            .deletingLastPathComponent().deletingLastPathComponent().deletingLastPathComponent()
         RimeRuntime.stop()
         // Earlier tests in this class have already deployed this directory, and librime is
         // free to decide the deploy it holds is still current — which leaves the schema
@@ -170,7 +166,7 @@ final class RimeEngineTests: XCTestCase {
         // the build directory is what makes this test measure the patch and not that call.
         try? FileManager.default.removeItem(
             at: Self.userDirectory.appendingPathComponent("build"))
-        RimeRuntime.start(sharedDataDir: root.appendingPathComponent("Rime/rime-ice"),
+        RimeRuntime.start(sharedDataDir: Self.sharedDataDirectory,
                           userDataDir: Self.userDirectory)
 
         let builtSchema = Self.userDirectory
@@ -193,5 +189,42 @@ final class RimeEngineTests: XCTestCase {
         // Put the page size back so the deploy this test leaves behind doesn't decide
         // what a later test in the class starts from.
         SettingsStore.saveCandidatePageSize(UserSettings.defaultCandidatePageSize)
+    }
+
+    private func type(_ input: String, into engine: RimeEngine) throws -> [String] {
+        var state: EngineState?
+        for character in input {
+            state = engine.process(keysym: Int32(character.unicodeScalars.first!.value), modifiers: 0)
+        }
+        return try XCTUnwrap(state).candidates.map(\.text)
+    }
+
+    /// D29: the demotion list reaches the deployed dictionary, so rime-ice's hand-pinned
+    /// 原神 no longer outranks 元神 and 海狗 no longer outranks 还够.
+    func testDemotedWordsSinkBelowTheWordsTheyDisplaced() throws {
+        for (input, first) in [("yuanshen", "元神"), ("haigou", "还够")] {
+            let engine = RimeEngine()
+            let candidates = try type(input, into: engine)
+            XCTAssertEqual(candidates.first, first, "\(input): \(candidates)")
+            engine.clear()
+        }
+    }
+
+    /// D29: a word picked once climbs to the front; deleting it makes librime forget that,
+    /// and the page goes back to the dictionary's own order.
+    func testDeleteCandidateForgetsALearnedWord() throws {
+        let engine = RimeEngine()
+        let baseline = try type("shiyan", into: engine)
+        let learned = baseline[1]
+        _ = engine.selectCandidate(onPageIndex: 1)
+        // An idle key librime passes on is what commits its pending learning transaction.
+        _ = engine.process(keysym: 0xFF0D, modifiers: 0)
+
+        let afterLearning = try type("shiyan", into: engine)
+        XCTAssertEqual(afterLearning.first, learned, "precondition: picking \(learned) should promote it")
+
+        let afterDelete = try XCTUnwrap(engine.deleteCandidate(onPageIndex: 0))
+        XCTAssertEqual(afterDelete.candidates.first?.text, baseline.first)
+        engine.clear()
     }
 }

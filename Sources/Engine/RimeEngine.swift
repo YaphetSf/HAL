@@ -34,6 +34,14 @@ final class RimeEngine: InputEngine {
         return readState(api)
     }
 
+    func deleteCandidate(onPageIndex index: Int) -> EngineState? {
+        guard let api = RimeRuntime.api else { return nil }
+        guard ensureSession(api) else { return nil }
+        // librime answers true whether or not there was a learned entry to forget.
+        _ = api.delete_candidate_on_current_page(sessionID, index)
+        return readState(api)
+    }
+
     func setAsciiMode(_ enabled: Bool) {
         guard let api = RimeRuntime.api, sessionID != 0 else { return }
         api.set_option(sessionID, "ascii_mode", enabled ? 1 : 0)

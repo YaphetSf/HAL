@@ -7,6 +7,7 @@ private final class StubEngine: InputEngine {
     private(set) var received: [Int32] = []
     private(set) var asciiMode = false
     private(set) var selectedPageIndexes: [Int] = []
+    private(set) var deletedPageIndexes: [Int] = []
 
     func process(keysym: Int32, modifiers: Int32) -> EngineState? {
         received.append(keysym)
@@ -15,6 +16,11 @@ private final class StubEngine: InputEngine {
 
     func selectCandidate(onPageIndex index: Int) -> EngineState? {
         selectedPageIndexes.append(index)
+        return replies.isEmpty ? nil : replies.removeFirst()
+    }
+
+    func deleteCandidate(onPageIndex index: Int) -> EngineState? {
+        deletedPageIndexes.append(index)
         return replies.isEmpty ? nil : replies.removeFirst()
     }
 
@@ -280,6 +286,59 @@ final class InputSessionTests: XCTestCase {
         XCTAssertEqual(session.handle(key(0xFF54))?.highlightedIndex, 1)
         XCTAssertEqual(session.handle(key(0xFF54))?.highlightedIndex, 1, "already at the end")
         XCTAssertEqual(engine.received, [0x73])
+    }
+
+    // MARK: - Forgetting a learned word (D29)
+
+    private let shiftBackSpace = RimeKey(keysym: 0xFF08, mask: 1)
+
+    func testShiftBackSpaceDeletesTheEngineHighlight() {
+        let engine = StubEngine()
+        engine.replies = [paging("haigou", ["海狗", "还够", "海沟"], highlighted: 1),
+                          paging("haigou", ["还够", "海沟", "海狗"])]
+        let session = InputSession(engine: engine, settings: { self.weightedSettings([]) })
+        _ = session.handle(key(0x75))
+
+        let state = session.handle(shiftBackSpace)
+        XCTAssertEqual(engine.deletedPageIndexes, [1])
+        XCTAssertEqual(engine.received, [0x75], "Shift+⌫ must not reach process_key while composing")
+        XCTAssertEqual(state?.candidates.map(\.text), ["还够", "海沟", "海狗"])
+        XCTAssertTrue(session.isComposing)
+    }
+
+    func testShiftBackSpaceOnARearrangedPageDeletesWhatIsHighlighted() {
+        let engine = StubEngine()
+        engine.replies = [paging("cizu", ["次序", "词组", "词库"]), paging("cizu", ["词组", "词库"])]
+        let session = InputSession(engine: engine, settings: {
+            self.weightedSettings([WeightRule(input: "cizu", candidate: "词组")])
+        })
+        _ = session.handle(key(0x75))
+        _ = session.handle(key(0xFF54))  // highlight 次序, displayed second
+
+        _ = session.handle(shiftBackSpace)
+        XCTAssertEqual(engine.deletedPageIndexes, [0], "displayed slot 1 is engine index 0")
+    }
+
+    func testShiftBackSpaceOnAnInsertedCandidateDeletesNothing() {
+        let engine = StubEngine()
+        engine.replies = [paging("schematics", ["赛车马蹄才是", "是"])]
+        let session = InputSession(engine: engine, settings: {
+            self.weightedSettings([WeightRule(input: "schematics", candidate: "schematics")])
+        })
+        _ = session.handle(key(0x73))
+
+        let state = session.handle(shiftBackSpace)
+        XCTAssertTrue(engine.deletedPageIndexes.isEmpty)
+        XCTAssertEqual(state?.candidates.first?.text, "schematics")
+    }
+
+    func testIdleShiftBackSpaceStillReachesTheEngine() {
+        let engine = StubEngine()
+        let session = InputSession(engine: engine)
+
+        XCTAssertNil(session.handle(shiftBackSpace))
+        XCTAssertEqual(engine.received, [0xFF08])
+        XCTAssertTrue(engine.deletedPageIndexes.isEmpty)
     }
 }
 

@@ -8,6 +8,8 @@ final class InputSession {
     /// selection keys land on the displayed candidate rather than librime's own index, and
     /// so does the highlight — a literal slot has no librime index for the highlight to sit on.
     private var display: Display?
+    /// librime's highlight on the page it produced; Shift+⌫ acts on it while `display` is nil.
+    private var engineHighlight = 0
 
     /// X11 keysyms InputSession acts on itself. KeyEventMapper sends previous/next candidate
     /// for the physical Left/Right keys, the axis HAL's horizontal candidate row moves along.
@@ -15,10 +17,13 @@ final class InputSession {
         static let space: Int32 = 0x20
         static let one: Int32 = 0x31
         static let nine: Int32 = 0x39
+        static let backSpace: Int32 = 0xFF08
         static let ret: Int32 = 0xFF0D
         static let previousCandidate: Int32 = 0xFF52
         static let nextCandidate: Int32 = 0xFF54
     }
+
+    private static let shiftMask: Int32 = 1 << 0
 
     private struct Display {
         var slots: [CandidateSlot]
@@ -35,6 +40,10 @@ final class InputSession {
     /// Returns the state to render, or nil when the engine passed on the key and the host
     /// app should get it instead.
     func handle(_ key: RimeKey) -> EngineState? {
+        // Idle Shift+⌫ still reaches librime, which reads it as "forget the last commit".
+        if isComposing, key.keysym == Keysym.backSpace, key.mask == Self.shiftMask {
+            return deleteHighlighted()
+        }
         if let state = handledByDisplay(key) { return state }
         guard let state = engine.process(keysym: key.keysym, modifiers: key.mask) else {
             return nil
@@ -105,6 +114,7 @@ final class InputSession {
             guard let state = engine.selectCandidate(onPageIndex: index) else { return nil }
             isComposing = state.composition != nil
             display = nil
+            engineHighlight = state.highlightedIndex
             return state
         case .literal(let candidate):
             // librime has no index for this one, so the composition is dropped and the
@@ -118,10 +128,27 @@ final class InputSession {
         }
     }
 
+    /// Shift+⌫ makes the engine forget the highlighted candidate as a learned word (D29).
+    /// A literal slot is HAL's own and has nothing to forget.
+    private func deleteHighlighted() -> EngineState? {
+        let index: Int
+        if let display {
+            guard case .engine(let engineIndex) = display.slots[display.highlightedIndex] else {
+                return display.state
+            }
+            index = engineIndex
+        } else {
+            index = engineHighlight
+        }
+        guard let state = engine.deleteCandidate(onPageIndex: index) else { return nil }
+        return rearranged(state)
+    }
+
     private func rearranged(_ original: EngineState) -> EngineState {
         var state = original
         isComposing = state.composition != nil
         display = nil
+        engineHighlight = original.highlightedIndex
         guard let input = state.composition?.text, !state.candidates.isEmpty else { return state }
 
         let pipeline = CandidatePipeline(

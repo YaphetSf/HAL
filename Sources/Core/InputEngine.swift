@@ -13,6 +13,10 @@ protocol InputEngine {
     /// candidate the user saw, not the engine's own order (M8).
     func selectCandidate(onPageIndex index: Int) -> EngineState?
 
+    /// Makes the engine forget the candidate at the given index of the current page as a
+    /// learned word, so it falls back to its dictionary rank (D29).
+    func deleteCandidate(onPageIndex index: Int) -> EngineState?
+
     /// Drops any composition in progress without committing it.
     func clear()
 

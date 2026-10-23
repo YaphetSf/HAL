@@ -32,6 +32,9 @@ Kept: `default.yaml`, `rime_ice.{schema,dict}.yaml`, `melt_eng.*`, `radical_piny
 (rime_ice uses it for reverse lookup), `cn_dicts/`, `en_dicts/en*`, `opencc/`, `lua/`,
 `symbols_*.yaml`, `custom_phrase.txt`, `LICENSE`.
 
+HAL ships these files with `Rime/hal/demoted.tsv` applied to `cn_dicts/base` at build time
+(`scripts/stage-rime-data.sh`, PLAN.md D29); the vendored copy here stays as the tarball has it.
+
 `default.yaml` still lists the removed schemas in `schema_list`; HAL narrows that to
 `rime_ice` with a `default.custom.yaml` patch in the user directory rather than editing the
 snapshot (D12).

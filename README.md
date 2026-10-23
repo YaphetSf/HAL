@@ -16,6 +16,7 @@
   keyboard back to another input source.
 - **`EN+`** (Shift + Caps Lock) completes English words from the system
   dictionary as you type; **`EN`** is a plain passthrough.
+- **Shift + ⌫ on a highlighted candidate** forgets it if HAL learned it from a mis-pick.
 - **Fuzzy Pinyin rules you write yourself** — custom map fuzzy Pinyin or any input to any syllable,
 
 ## Requirements
