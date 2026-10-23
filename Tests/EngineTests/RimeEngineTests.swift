@@ -1,13 +1,14 @@
 import XCTest
 
-/// Runs against the real librime and rime-ice as HAL ships it. The first run deploys the full
-/// dictionary set into a temporary directory, which takes a while (PLAN.md §6.1).
+/// Runs against the real librime and the vendored rime-ice snapshot. The first run deploys
+/// the full dictionary set into a temporary directory, which takes a while (PLAN.md §6.1).
 final class RimeEngineTests: XCTestCase {
     private static let userDirectory = FileManager.default.temporaryDirectory
         .appendingPathComponent("HALEngineTests-\(UUID().uuidString)")
-    /// Staged by this target's build phase with the same script as the app's (D29).
-    private static let sharedDataDirectory = Bundle(for: RimeEngineTests.self).resourceURL!
-        .appendingPathComponent("RimeData")
+    // .../Tests/EngineTests/RimeEngineTests.swift -> repository root
+    private static let sharedDataDirectory = URL(fileURLWithPath: #filePath)
+        .deletingLastPathComponent().deletingLastPathComponent().deletingLastPathComponent()
+        .appendingPathComponent("Rime/rime-ice")
 
     /// Points SettingsStore at the throwaway directory so `prepareUserDirectory` derives the
     /// fuzzy patch from test state, never from the developer's real Settings.json.
@@ -199,12 +200,13 @@ final class RimeEngineTests: XCTestCase {
         return try XCTUnwrap(state).candidates.map(\.text)
     }
 
-    /// D29: the demotion list reaches the deployed dictionary, so rime-ice's hand-pinned
-    /// 原神 no longer outranks 元神 and 海狗 no longer outranks 还够.
-    func testDemotedWordsSinkBelowTheWordsTheyDisplaced() throws {
-        for (input, first) in [("yuanshen", "元神"), ("haigou", "还够")] {
+    /// D29: excluded words never reach the page, and the word rime-ice ranked behind them
+    /// moves up.
+    func testRemovedWordsAreGone() throws {
+        for (input, removed, first) in [("yuanshen", "原神", "元神"), ("haigou", "海狗", "还够")] {
             let engine = RimeEngine()
             let candidates = try type(input, into: engine)
+            XCTAssertFalse(candidates.contains(removed), "\(input): \(candidates)")
             XCTAssertEqual(candidates.first, first, "\(input): \(candidates)")
             engine.clear()
         }

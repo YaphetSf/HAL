@@ -53,8 +53,8 @@ targets:
         basedOnDependencyAnalysis: false
         script: |
           set -e
-          "$SRCROOT/scripts/stage-rime-data.sh" \
-            "$TARGET_BUILD_DIR/$UNLOCALIZED_RESOURCES_FOLDER_PATH/RimeData"
+          rsync -a --delete "$SRCROOT/Rime/rime-ice/" \
+            "$TARGET_BUILD_DIR/$UNLOCALIZED_RESOURCES_FOLDER_PATH/RimeData/"
           rsync -a --delete "$SRCROOT/Rime/lib/rime-plugins/" \
             "$TARGET_BUILD_DIR/$FRAMEWORKS_FOLDER_PATH/rime-plugins/"
           for plugin in "$TARGET_BUILD_DIR/$FRAMEWORKS_FOLDER_PATH/rime-plugins/"*.dylib; do
@@ -119,12 +119,10 @@ targets:
         GENERATE_INFOPLIST_FILE: YES
         LD_RUNPATH_SEARCH_PATHS: "@loader_path/../Frameworks"
     postBuildScripts:
-      - name: Embed rime-ice and librime plugins
+      - name: Embed librime plugins
         basedOnDependencyAnalysis: false
         script: |
           set -e
-          "$SRCROOT/scripts/stage-rime-data.sh" \
-            "$TARGET_BUILD_DIR/$UNLOCALIZED_RESOURCES_FOLDER_PATH/RimeData"
           rsync -a --delete "$SRCROOT/Rime/lib/rime-plugins/" \
             "$TARGET_BUILD_DIR/$FRAMEWORKS_FOLDER_PATH/rime-plugins/"
           for plugin in "$TARGET_BUILD_DIR/$FRAMEWORKS_FOLDER_PATH/rime-plugins/"*.dylib; do

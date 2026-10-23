@@ -235,7 +235,7 @@ final class RimeSpellerPatchTests: XCTestCase {
         XCTAssertTrue(content.contains("# my own patch, do not touch"))
     }
 
-    func testStripsLegacyDinDingBlockAndRemovesFileWhenEmpty() throws {
+    func testStripsLegacyDinDingBlock() throws {
         try """
         # HAL fuzzy din-ding begin
         patch:
@@ -246,7 +246,7 @@ final class RimeSpellerPatchTests: XCTestCase {
 
         RimeSpellerPatch.write(rules: [SpellerRule.dinToDing], asciiPhrases: [], in: directory)
 
-        XCTAssertFalse(FileManager.default.fileExists(atPath: RimeSpellerPatch.schemaPatchURL(in: directory).path))
+        XCTAssertFalse(try writtenContent().contains("din-ding"))
 
         RimeSpellerPatch.write(rules: [SpellerRule(input: "ing", match: "in")],
                                asciiPhrases: [], in: directory)
@@ -292,11 +292,19 @@ final class RimeSpellerPatchTests: XCTestCase {
         XCTAssertTrue(try writtenContent().contains("\"menu/page_size\": 9"))
     }
 
-    func testDefaultPageSizeIsNotWrittenSoResetStripsTheBlock() throws {
+    func testDefaultPageSizeIsNotWritten() throws {
         RimeSpellerPatch.write(rules: [], asciiPhrases: [],
                                pageSize: UserSettings.defaultCandidatePageSize, in: directory)
-        XCTAssertFalse(FileManager.default.fileExists(
-            atPath: RimeSpellerPatch.schemaPatchURL(in: directory).path))
+        XCTAssertFalse(try writtenContent().contains("menu/page_size"))
+    }
+
+    func testExcludedWordsAreWrittenWithoutAnyUserSetting() throws {
+        RimeSpellerPatch.write(rules: [], asciiPhrases: [], in: directory)
+        let content = try writtenContent()
+        XCTAssertTrue(content.contains("\"translator/dictionary_exclude\":\n    - "))
+        for word in RimeExcludedWords.all {
+            XCTAssertTrue(content.contains("    - \(word)\n"), word)
+        }
     }
 
     func testPageSizeSurvivesRewriteAlongsideRules() throws {
