@@ -225,7 +225,7 @@ final class RimeSpellerPatchTests: XCTestCase {
             SpellerRule(input: "an", match: "ang$", isEnabled: false),
             SpellerRule(input: "ang", match: "an"),
             SpellerRule(input: "c", match: "a/b")
-        ], asciiPhrases: [], in: directory)
+        ], asciiPhrases: [], removedWords: [], in: directory)
 
         let content = try writtenContent()
         XCTAssertTrue(content.contains("derive/^ding$/din/"))
@@ -235,7 +235,7 @@ final class RimeSpellerPatchTests: XCTestCase {
         XCTAssertTrue(content.contains("# my own patch, do not touch"))
     }
 
-    func testStripsLegacyDinDingBlock() throws {
+    func testStripsLegacyDinDingBlockAndRemovesFileWhenEmpty() throws {
         try """
         # HAL fuzzy din-ding begin
         patch:
@@ -244,19 +244,19 @@ final class RimeSpellerPatchTests: XCTestCase {
         # HAL fuzzy din-ding end
         """.write(to: RimeSpellerPatch.schemaPatchURL(in: directory), atomically: true, encoding: .utf8)
 
-        RimeSpellerPatch.write(rules: [SpellerRule.dinToDing], asciiPhrases: [], in: directory)
+        RimeSpellerPatch.write(rules: [SpellerRule.dinToDing], asciiPhrases: [], removedWords: [], in: directory)
 
-        XCTAssertFalse(try writtenContent().contains("din-ding"))
+        XCTAssertFalse(FileManager.default.fileExists(atPath: RimeSpellerPatch.schemaPatchURL(in: directory).path))
 
         RimeSpellerPatch.write(rules: [SpellerRule(input: "ing", match: "in")],
-                               asciiPhrases: [], in: directory)
+                               asciiPhrases: [], removedWords: [], in: directory)
         let content = try writtenContent()
         XCTAssertFalse(content.contains("din-ding"))
         XCTAssertTrue(content.contains("derive/^in$/ing/"))
     }
 
     func testAsciiPhrasesProduceRecognizerPatternInPatch() throws {
-        RimeSpellerPatch.write(rules: [], asciiPhrases: ["e.g.", "etc."], in: directory)
+        RimeSpellerPatch.write(rules: [], asciiPhrases: ["e.g.", "etc."], removedWords: [], in: directory)
         let content = try writtenContent()
         let pattern = try XCTUnwrap(RimeSpellerPatch.recognizerPattern(forAsciiPhrases: ["e.g.", "etc."]))
         XCTAssertTrue(content.contains("recognizer/patterns/hal_ascii_pass"))
@@ -288,30 +288,33 @@ final class RimeSpellerPatchTests: XCTestCase {
 
     func testCustomPageSizeIsWrittenIntoThePatchBlock() throws {
         RimeSpellerPatch.write(rules: [], asciiPhrases: [],
-                               pageSize: 9, in: directory)
+                               pageSize: 9, removedWords: [], in: directory)
         XCTAssertTrue(try writtenContent().contains("\"menu/page_size\": 9"))
     }
 
-    func testDefaultPageSizeIsNotWritten() throws {
+    func testDefaultPageSizeIsNotWrittenSoResetStripsTheBlock() throws {
         RimeSpellerPatch.write(rules: [], asciiPhrases: [],
-                               pageSize: UserSettings.defaultCandidatePageSize, in: directory)
-        XCTAssertFalse(try writtenContent().contains("menu/page_size"))
+                               pageSize: UserSettings.defaultCandidatePageSize, removedWords: [], in: directory)
+        XCTAssertFalse(FileManager.default.fileExists(
+            atPath: RimeSpellerPatch.schemaPatchURL(in: directory).path))
     }
 
-    func testExcludedWordsAreWrittenWithoutAnyUserSetting() throws {
-        RimeSpellerPatch.write(rules: [], asciiPhrases: [], in: directory)
-        let content = try writtenContent()
-        XCTAssertTrue(content.contains("\"translator/dictionary_exclude\":\n    - "))
-        for word in RimeExcludedWords.all {
-            XCTAssertTrue(content.contains("    - \(word)\n"), word)
-        }
+    func testRemovedWordsBecomeTheDictionaryExcludeList() throws {
+        RimeSpellerPatch.write(rules: [], asciiPhrases: [], removedWords: ["无双铭文", "原神"],
+                               in: directory)
+        XCTAssertTrue(try writtenContent().contains(
+            "\"translator/dictionary_exclude\":\n    - 无双铭文\n    - 原神"))
+
+        RimeSpellerPatch.write(rules: [], asciiPhrases: [], removedWords: [], in: directory)
+        XCTAssertFalse(FileManager.default.fileExists(
+            atPath: RimeSpellerPatch.schemaPatchURL(in: directory).path))
     }
 
     func testPageSizeSurvivesRewriteAlongsideRules() throws {
         RimeSpellerPatch.write(rules: [SpellerRule(input: "din", match: "ding")],
-                               asciiPhrases: ["e.g."], pageSize: 7, in: directory)
+                               asciiPhrases: ["e.g."], pageSize: 7, removedWords: [], in: directory)
         RimeSpellerPatch.write(rules: [SpellerRule(input: "din", match: "ding")],
-                               asciiPhrases: ["e.g."], pageSize: 8, in: directory)
+                               asciiPhrases: ["e.g."], pageSize: 8, removedWords: [], in: directory)
         let content = try writtenContent()
         XCTAssertTrue(content.contains("\"menu/page_size\": 8"))
         XCTAssertFalse(content.contains("\"menu/page_size\": 7"))

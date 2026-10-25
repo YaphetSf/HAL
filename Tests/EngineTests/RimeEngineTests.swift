@@ -81,7 +81,8 @@ final class RimeEngineTests: XCTestCase {
                                      match: SpellerRule.dinToDing.match))
         }
         SettingsStore.saveSpellerRules(rules)
-        RimeSpellerPatch.write(rules: rules, asciiPhrases: UserSettings.defaultAsciiPhrases, in: Self.userDirectory)
+        RimeSpellerPatch.write(rules: rules, asciiPhrases: UserSettings.defaultAsciiPhrases,
+                               removedWords: RemovedWords.load(), in: Self.userDirectory)
         RimeRuntime.stop()
         RimeRuntime.start(sharedDataDir: Self.sharedDataDirectory,
                           userDataDir: Self.userDirectory)
@@ -159,6 +160,7 @@ final class RimeEngineTests: XCTestCase {
         SettingsStore.saveCandidatePageSize(3)
         RimeSpellerPatch.write(rules: [], asciiPhrases: [],
                                pageSize: SettingsStore.load().candidatePageSize,
+                               removedWords: RemovedWords.load(),
                                in: Self.userDirectory)
         RimeRuntime.stop()
         // Earlier tests in this class have already deployed this directory, and librime is
@@ -200,8 +202,8 @@ final class RimeEngineTests: XCTestCase {
         return try XCTUnwrap(state).candidates.map(\.text)
     }
 
-    /// D29: excluded words never reach the page, and the word rime-ice ranked behind them
-    /// moves up.
+    /// D29: the default removed words reach librime as `dictionary_exclude`, so they never
+    /// reach the page and the word rime-ice ranked behind them moves up.
     func testRemovedWordsAreGone() throws {
         for (input, removed, first) in [("yuanshen", "原神", "元神"), ("haigou", "海狗", "还够")] {
             let engine = RimeEngine()
@@ -228,5 +230,31 @@ final class RimeEngineTests: XCTestCase {
         let afterDelete = try XCTUnwrap(engine.deleteCandidate(onPageIndex: 0))
         XCTAssertEqual(afterDelete.candidates.first?.text, baseline.first)
         engine.clear()
+    }
+
+    /// D29: Shift+⌫ on a word that only the dictionary knows takes it off the page at once
+    /// and keeps it off the next composition.
+    func testShiftBackSpaceRemovesADictionaryWord() throws {
+        var removed: [String] = []
+        let session = InputSession(engine: RimeEngine(),
+                                   settings: { UserSettings(spellerRules: [], asciiPhrases: []) },
+                                   removedWords: { removed }, removeWord: { removed.append($0) })
+        func type(_ input: String) throws -> [String] {
+            var state: EngineState?
+            for character in input {
+                state = session.handle(RimeKey(keysym: Int32(character.unicodeScalars.first!.value),
+                                               mask: 0))
+            }
+            return try XCTUnwrap(state).candidates.map(\.text)
+        }
+
+        let first = try XCTUnwrap(try type("wsmw").first)
+        let afterRemoval = try XCTUnwrap(session.handle(RimeKey(keysym: 0xFF08, mask: 1)))
+        XCTAssertEqual(removed, [first])
+        XCTAssertFalse(afterRemoval.candidates.map(\.text).contains(first))
+        _ = session.reset()
+
+        XCTAssertFalse(try type("wsmw").contains(first))
+        _ = session.reset()
     }
 }

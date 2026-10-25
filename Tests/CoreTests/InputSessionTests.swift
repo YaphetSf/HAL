@@ -288,57 +288,97 @@ final class InputSessionTests: XCTestCase {
         XCTAssertEqual(engine.received, [0x73])
     }
 
-    // MARK: - Forgetting a learned word (D29)
+    // MARK: - Removing a candidate (D29)
 
     private let shiftBackSpace = RimeKey(keysym: 0xFF08, mask: 1)
 
-    func testShiftBackSpaceDeletesTheEngineHighlight() {
+    /// The removed-word list in memory, so these tests never touch RemovedWords.json.
+    private final class RemovedList {
+        var words: [String]
+        init(_ words: [String] = []) { self.words = words }
+    }
+
+    private func session(_ engine: StubEngine, removed: RemovedList,
+                         weights: [WeightRule] = []) -> InputSession {
+        InputSession(engine: engine, settings: { self.weightedSettings(weights) },
+                     removedWords: { removed.words }, removeWord: { removed.words.append($0) })
+    }
+
+    func testShiftBackSpaceRemovesTheEngineHighlight() {
         let engine = StubEngine()
+        let removed = RemovedList()
+        // librime forgets what it learned, but the word is still in its dictionary.
         engine.replies = [paging("haigou", ["海狗", "还够", "海沟"], highlighted: 1),
-                          paging("haigou", ["还够", "海沟", "海狗"])]
-        let session = InputSession(engine: engine, settings: { self.weightedSettings([]) })
+                          paging("haigou", ["海狗", "还够", "海沟"])]
+        let session = session(engine, removed: removed)
         _ = session.handle(key(0x75))
 
         let state = session.handle(shiftBackSpace)
+        XCTAssertEqual(removed.words, ["还够"])
         XCTAssertEqual(engine.deletedPageIndexes, [1])
         XCTAssertEqual(engine.received, [0x75], "Shift+⌫ must not reach process_key while composing")
-        XCTAssertEqual(state?.candidates.map(\.text), ["还够", "海沟", "海狗"])
+        XCTAssertEqual(state?.candidates.map(\.text), ["海狗", "海沟"])
         XCTAssertTrue(session.isComposing)
     }
 
-    func testShiftBackSpaceOnARearrangedPageDeletesWhatIsHighlighted() {
+    func testShiftBackSpaceOnARearrangedPageRemovesWhatIsHighlighted() {
         let engine = StubEngine()
-        engine.replies = [paging("cizu", ["次序", "词组", "词库"]), paging("cizu", ["词组", "词库"])]
-        let session = InputSession(engine: engine, settings: {
-            self.weightedSettings([WeightRule(input: "cizu", candidate: "词组")])
-        })
+        let removed = RemovedList()
+        engine.replies = [paging("cizu", ["次序", "词组", "词库"]), paging("cizu", ["次序", "词组", "词库"])]
+        let session = session(engine, removed: removed,
+                              weights: [WeightRule(input: "cizu", candidate: "词组")])
         _ = session.handle(key(0x75))
         _ = session.handle(key(0xFF54))  // highlight 次序, displayed second
 
-        _ = session.handle(shiftBackSpace)
+        let state = session.handle(shiftBackSpace)
         XCTAssertEqual(engine.deletedPageIndexes, [0], "displayed slot 1 is engine index 0")
+        XCTAssertEqual(removed.words, ["次序"])
+        XCTAssertEqual(state?.candidates.map(\.text), ["词组", "词库"])
     }
 
-    func testShiftBackSpaceOnAnInsertedCandidateDeletesNothing() {
+    func testShiftBackSpaceOnAnInsertedCandidateRemovesNothing() {
         let engine = StubEngine()
+        let removed = RemovedList()
         engine.replies = [paging("schematics", ["赛车马蹄才是", "是"])]
-        let session = InputSession(engine: engine, settings: {
-            self.weightedSettings([WeightRule(input: "schematics", candidate: "schematics")])
-        })
+        let session = session(engine, removed: removed,
+                              weights: [WeightRule(input: "schematics", candidate: "schematics")])
         _ = session.handle(key(0x73))
 
         let state = session.handle(shiftBackSpace)
+        XCTAssertTrue(removed.words.isEmpty)
         XCTAssertTrue(engine.deletedPageIndexes.isEmpty)
         XCTAssertEqual(state?.candidates.first?.text, "schematics")
     }
 
     func testIdleShiftBackSpaceStillReachesTheEngine() {
         let engine = StubEngine()
-        let session = InputSession(engine: engine)
+        let removed = RemovedList()
+        let session = session(engine, removed: removed)
 
         XCTAssertNil(session.handle(shiftBackSpace))
         XCTAssertEqual(engine.received, [0xFF08])
         XCTAssertTrue(engine.deletedPageIndexes.isEmpty)
+        XCTAssertTrue(removed.words.isEmpty)
+    }
+
+    func testRemovedWordsNeverReachThePageAndSelectionFollowsTheDisplay() {
+        let engine = StubEngine()
+        engine.replies = [paging("wsmw", ["无双铭文", "为什么我不能", "为什么我会"]),
+                          committing("为什么我不能")]
+        let session = session(engine, removed: RemovedList(["无双铭文"]))
+
+        let state = session.handle(key(0x77))
+        XCTAssertEqual(state?.candidates.map(\.text), ["为什么我不能", "为什么我会"])
+        _ = session.handle(key(0x20))
+        XCTAssertEqual(engine.selectedPageIndexes, [1])
+    }
+
+    func testAPageOfOnlyRemovedWordsStaysAsItIs() {
+        let engine = StubEngine()
+        engine.replies = [paging("wsmw", ["无双铭文"])]
+        let session = session(engine, removed: RemovedList(["无双铭文"]))
+
+        XCTAssertEqual(session.handle(key(0x77))?.candidates.map(\.text), ["无双铭文"])
     }
 }
 
@@ -347,7 +387,7 @@ final class WeightTableProcessorTests: XCTestCase {
 
     private func arrange(_ rules: [WeightRule], _ input: String,
                          page: Int = 0) -> [CandidateSlot]? {
-        WeightTableProcessor(rules: rules)
+        CandidatePipeline(processors: [WeightTableProcessor(rules: rules)])
             .arrange(candidates: candidates, input: input,
                      page: EngineState.Page(index: page, hasPrev: page > 0, hasNext: true))
     }

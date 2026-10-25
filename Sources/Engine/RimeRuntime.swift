@@ -90,6 +90,7 @@ enum RimeRuntime {
         RimeSpellerPatch.write(rules: settings.spellerRules,
                                asciiPhrases: settings.asciiPhrases,
                                pageSize: settings.candidatePageSize,
+                               removedWords: RemovedWords.load(),
                                in: url)
         let patch = url.appendingPathComponent("default.custom.yaml")
         guard !FileManager.default.fileExists(atPath: patch.path) else { return }

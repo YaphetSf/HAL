@@ -86,6 +86,7 @@ struct FuzzySettingsView: View {
             SettingsStore.saveAsciiPhrases(phrases)
             RimeSpellerPatch.write(rules: rules, asciiPhrases: phrases,
                                    pageSize: SettingsStore.load().candidatePageSize,
+                                   removedWords: RemovedWords.load(),
                                    in: URL.rimeUserDirectory)
         } completion: { success in
             applyState = success ? .applied : .failed

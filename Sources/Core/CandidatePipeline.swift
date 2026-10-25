@@ -11,9 +11,30 @@ enum CandidateSlot: Equatable {
 /// for every source of candidates — Chinese pages today, EN+ suggestions when they grow
 /// a ranking need.
 protocol CandidateProcessor {
-    /// Returns the display list, one slot per display position. Identity (nil) means
-    /// "leave the page alone".
-    func arrange(candidates: [Candidate], input: String, page: EngineState.Page) -> [CandidateSlot]?
+    /// Takes the display list the previous step produced and returns the next one.
+    func arrange(_ slots: [CandidateSlot], of candidates: [Candidate], input: String,
+                 page: EngineState.Page) -> [CandidateSlot]
+}
+
+extension CandidateSlot {
+    func text(in candidates: [Candidate]) -> String {
+        switch self {
+        case .engine(let index): return candidates[index].text
+        case .literal(let candidate): return candidate.text
+        }
+    }
+}
+
+/// The words the user removed with Shift+⌫ (D29) never reach the page. A page made only of
+/// removed words stays as it is: an empty row would leave space nothing to commit.
+struct RemovedWordsProcessor: CandidateProcessor {
+    let words: Set<String>
+
+    func arrange(_ slots: [CandidateSlot], of candidates: [Candidate], input: String,
+                 page: EngineState.Page) -> [CandidateSlot] {
+        let kept = slots.filter { !words.contains($0.text(in: candidates)) }
+        return kept.isEmpty ? slots : kept
+    }
 }
 
 /// The user's manual weights (M8, D25): when the composed input matches a rule exactly, its
@@ -22,36 +43,34 @@ protocol CandidateProcessor {
 struct WeightTableProcessor: CandidateProcessor {
     let rules: [WeightRule]
 
-    func arrange(candidates: [Candidate], input: String, page: EngineState.Page) -> [CandidateSlot]? {
+    func arrange(_ slots: [CandidateSlot], of candidates: [Candidate], input: String,
+                 page: EngineState.Page) -> [CandidateSlot] {
         let normalized = input.lowercased().filter { $0.isLetter || $0.isNumber }
         guard !normalized.isEmpty,
               let rule = rules.first(where: { $0.input.lowercased() == normalized })
-        else { return nil }
+        else { return slots }
 
-        let engineSlots = candidates.indices.map { CandidateSlot.engine($0) }
-        guard let engineIndex = candidates.firstIndex(where: { $0.text == rule.candidate }) else {
+        guard let position = slots.firstIndex(where: { $0.text(in: candidates) == rule.candidate }) else {
             // The word is in no dictionary librime is reading, so there is nothing to move
             // and HAL supplies it. Only on the first page: one rule stays one candidate.
-            guard page.index == 0 else { return nil }
-            return [.literal(Candidate(text: rule.candidate, comment: nil))] + engineSlots
+            guard page.index == 0 else { return slots }
+            return [.literal(Candidate(text: rule.candidate, comment: nil))] + slots
         }
-        guard engineIndex > 0 else { return nil }
-        var slots = engineSlots
-        slots.remove(at: engineIndex)
-        slots.insert(.engine(engineIndex), at: 0)
-        return slots
+        var arranged = slots
+        arranged.insert(arranged.remove(at: position), at: 0)
+        return arranged
     }
 }
 
 struct CandidatePipeline {
     let processors: [CandidateProcessor]
 
+    /// nil when no step changed librime's own page.
     func arrange(candidates: [Candidate], input: String, page: EngineState.Page) -> [CandidateSlot]? {
-        for processor in processors {
-            if let slots = processor.arrange(candidates: candidates, input: input, page: page) {
-                return slots
-            }
+        let original = candidates.indices.map(CandidateSlot.engine)
+        let slots = processors.reduce(original) { slots, processor in
+            processor.arrange(slots, of: candidates, input: input, page: page)
         }
-        return nil
+        return slots == original ? nil : slots
     }
 }

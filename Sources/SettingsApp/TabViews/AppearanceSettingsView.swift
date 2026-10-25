@@ -167,6 +167,7 @@ struct AppearanceSettingsView: View {
             RimeSpellerPatch.write(rules: settings.spellerRules,
                                    asciiPhrases: settings.asciiPhrases,
                                    pageSize: pageSize,
+                                   removedWords: RemovedWords.load(),
                                    in: URL.rimeUserDirectory)
         } completion: { success in
             applyState = success ? .applied : .failed

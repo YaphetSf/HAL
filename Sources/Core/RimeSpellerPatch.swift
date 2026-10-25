@@ -1,7 +1,7 @@
 import Foundation
 
 /// Writes HAL's marked patch block into `rime_ice.custom.yaml`: the user's fuzzy rules (D21)
-/// as `speller/algebra/+`, ASCII pass phrases, page size, and the excluded words (D29). Rules
+/// as `speller/algebra/+`, ASCII pass phrases, page size, and the removed words (D29). Rules
 /// are stored in user direction (input → match) and inverted here into rime's
 /// `derive/^match$/input/`. Everything outside the markers is the user's to edit (D12) and is
 /// preserved verbatim.
@@ -18,6 +18,7 @@ enum RimeSpellerPatch {
 
     static func write(rules: [SpellerRule], asciiPhrases: [String],
                       pageSize: Int = UserSettings.defaultCandidatePageSize,
+                      removedWords: [String],
                       in userDirectory: URL) {
         let url = schemaPatchURL(in: userDirectory)
         let existing = (try? String(contentsOf: url, encoding: .utf8)) ?? ""
@@ -40,25 +41,37 @@ enum RimeSpellerPatch {
                 let yamlPattern = pattern.replacingOccurrences(of: "\\", with: "\\\\")
                 lines.append("  \"recognizer/patterns/hal_ascii_pass\": \"\(yamlPattern)\"")
             }
-            // rime's default is 5; only write a page_size when the user chose otherwise (D21).
+            // rime's default is 5; only write a page_size when the user chose otherwise,
+            // so resetting to the default strips the block back out (D21).
             if pageSize != UserSettings.defaultCandidatePageSize {
                 lines.append("  \"menu/page_size\": \(pageSize)")
             }
-            lines.append("  \"translator/dictionary_exclude\":")
-            lines += RimeExcludedWords.all.map { "    - \($0)" }
+            if !removedWords.isEmpty {
+                lines.append("  \"translator/dictionary_exclude\":")
+                lines += removedWords.map { "    - \($0)" }
+            }
             return lines
         }()
-        let patch = """
-        \(beginMarker)
-        patch:
-        \(entries.joined(separator: "\n"))
-        \(endMarker)
-        """
         let foreign = withoutBlocks.trimmingCharacters(in: .whitespacesAndNewlines)
-        let content = foreign.isEmpty ? patch + "\n" : foreign + "\n\n" + patch + "\n"
-        try? FileManager.default.createDirectory(at: url.deletingLastPathComponent(),
-                                                  withIntermediateDirectories: true)
-        try? content.write(to: url, atomically: true, encoding: .utf8)
+        let content: String
+        if entries.isEmpty {
+            content = withoutBlocks
+        } else {
+            let patch = """
+            \(beginMarker)
+            patch:
+            \(entries.joined(separator: "\n"))
+            \(endMarker)
+            """
+            content = foreign.isEmpty ? patch : foreign + "\n\n" + patch
+        }
+        if !entries.isEmpty || !foreign.isEmpty {
+            try? FileManager.default.createDirectory(at: url.deletingLastPathComponent(),
+                                                      withIntermediateDirectories: true)
+            try? content.write(to: url, atomically: true, encoding: .utf8)
+        } else {
+            try? FileManager.default.removeItem(at: url)
+        }
     }
 
     /// A phrase passes through the punctuation layer only while the recognizer sees the

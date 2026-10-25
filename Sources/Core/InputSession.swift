@@ -3,13 +3,16 @@
 final class InputSession {
     private let engine: InputEngine
     private let settings: () -> UserSettings
+    private let removedWords: () -> [String]
+    private let removeWord: (String) -> Void
     private(set) var isComposing = false
     /// Non-nil while the pipeline rearranged the page (M8, D25). It owns what the user sees:
     /// selection keys land on the displayed candidate rather than librime's own index, and
     /// so does the highlight — a literal slot has no librime index for the highlight to sit on.
     private var display: Display?
-    /// librime's highlight on the page it produced; Shift+⌫ acts on it while `display` is nil.
-    private var engineHighlight = 0
+    /// The last page librime produced, before any rearranging; Shift+⌫ reads the candidate
+    /// it removes from here.
+    private var enginePage = EngineState.idle
 
     /// X11 keysyms InputSession acts on itself. KeyEventMapper sends previous/next candidate
     /// for the physical Left/Right keys, the axis HAL's horizontal candidate row moves along.
@@ -32,9 +35,14 @@ final class InputSession {
         var state: EngineState
     }
 
-    init(engine: InputEngine, settings: @escaping () -> UserSettings = { SettingsStore.load() }) {
+    init(engine: InputEngine,
+         settings: @escaping () -> UserSettings = { SettingsStore.load() },
+         removedWords: @escaping () -> [String] = { RemovedWords.load() },
+         removeWord: @escaping (String) -> Void = { RemovedWords.add($0) }) {
         self.engine = engine
         self.settings = settings
+        self.removedWords = removedWords
+        self.removeWord = removeWord
     }
 
     /// Returns the state to render, or nil when the engine passed on the key and the host
@@ -114,7 +122,7 @@ final class InputSession {
             guard let state = engine.selectCandidate(onPageIndex: index) else { return nil }
             isComposing = state.composition != nil
             display = nil
-            engineHighlight = state.highlightedIndex
+            enginePage = state
             return state
         case .literal(let candidate):
             // librime has no index for this one, so the composition is dropped and the
@@ -128,8 +136,9 @@ final class InputSession {
         }
     }
 
-    /// Shift+⌫ makes the engine forget the highlighted candidate as a learned word (D29).
-    /// A literal slot is HAL's own and has nothing to forget.
+    /// Shift+⌫ takes the highlighted candidate out for good (D29): it joins the removed
+    /// words, which hides it from this page on, and librime forgets it as a learned word. A
+    /// literal slot is the user's own weight rule and stays.
     private func deleteHighlighted() -> EngineState? {
         let index: Int
         if let display {
@@ -138,8 +147,10 @@ final class InputSession {
             }
             index = engineIndex
         } else {
-            index = engineHighlight
+            index = enginePage.highlightedIndex
         }
+        guard enginePage.candidates.indices.contains(index) else { return nil }
+        removeWord(enginePage.candidates[index].text)
         guard let state = engine.deleteCandidate(onPageIndex: index) else { return nil }
         return rearranged(state)
     }
@@ -148,15 +159,15 @@ final class InputSession {
         var state = original
         isComposing = state.composition != nil
         display = nil
-        engineHighlight = original.highlightedIndex
+        enginePage = original
         guard let input = state.composition?.text, !state.candidates.isEmpty else { return state }
 
-        let pipeline = CandidatePipeline(
-            processors: [WeightTableProcessor(rules: settings().weightedCandidates)]
-        )
+        let pipeline = CandidatePipeline(processors: [
+            RemovedWordsProcessor(words: Set(removedWords())),
+            WeightTableProcessor(rules: settings().weightedCandidates)
+        ])
         guard let slots = pipeline.arrange(candidates: state.candidates, input: input,
-                                           page: state.page),
-              slots != original.candidates.indices.map(CandidateSlot.engine)
+                                           page: state.page)
         else { return state }
 
         state.candidates = slots.map { slot in
