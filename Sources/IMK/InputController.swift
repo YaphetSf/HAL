@@ -67,7 +67,9 @@ final class InputController: IMKInputController {
     }
 
     override func activateServer(_ sender: Any!) {
-        log.info("activateServer client=\(Self.clientID(sender), privacy: .public)")
+        let clientID = Self.clientID(sender)
+        log.info("activateServer client=\(clientID, privacy: .public)")
+        ActiveInputSource.clientDidActivate(clientID)
         if session == nil { session = InputSession(engine: RimeEngine()) }
         session?.setAsciiMode(Self.isAsciiMode)
         hideAIEdit()

@@ -9,13 +9,10 @@ private let sourceLog = Logger(subsystem: "com.hal.inputmethod", category: "inpu
 /// silently hands the keyboard back to its ASCII fallback layout. TIS sometimes accepts a
 /// selection globally without delivering it to the focused client, so recovery is deliberately
 /// best-effort and bounded: a client that refuses HAL must not trigger an infinite
-/// source-switch loop (D11).
+/// source-switch loop. When `StickyRecovery` stalls, the next focus change resumes it (D11).
 enum ActiveInputSource {
     private static let inputSourceID = "com.hal.inputmethod.HAL"
     private static let maxAttemptsPerRecovery = 3
-    private static let maxSelectionsPerBurst = 3
-    private static let burstWindow: TimeInterval = 5
-    private static let cooldown: TimeInterval = 30
     private static let retryDelays: [TimeInterval] = [0, 0.15, 0.5]
     private static let secureInputPollInterval: TimeInterval = 0.25
 
@@ -35,22 +32,23 @@ enum ActiveInputSource {
     /// equal the new source and could not tell the system's fallback from a deliberate pick.
     nonisolated(unsafe) private static var fallbackSourceID: String?
 
-    /// Recovery state lives on the main run loop with the notification callbacks. The recent
-    /// selection timestamps span recovery cycles so a client that repeatedly reverts a
-    /// successful-looking TIS selection still hits the circuit breaker.
+    /// The client IMK last activated HAL in. Menu bar popups such as Control Center take key
+    /// focus without becoming the frontmost app, so this is the only way to name them.
+    nonisolated(unsafe) private static var lastClient: (id: String, at: TimeInterval)?
+
+    /// Recovery state lives on the main run loop with the notification callbacks.
+    nonisolated(unsafe) private static var policy = StickyRecovery()
     nonisolated(unsafe) private static var recoveryTimer: Timer?
     nonisolated(unsafe) private static var recoveryAttempt = 0
     nonisolated(unsafe) private static var recoveryTrigger: String?
-    nonisolated(unsafe) private static var recentSelectionTimes: [TimeInterval] = []
-    nonisolated(unsafe) private static var suppressedUntil: TimeInterval = 0
     nonisolated(unsafe) private static var isWaitingForSecureInput = false
 
-    /// Sets the initial state and subscribes to the distributed notifications this needs:
-    /// TIS for every source change, plus screen lock/unlock to enter the recovery path (§6.2 —
-    /// the lock screen's password field runs outside any third-party input method, and macOS
-    /// never restores the pre-lock source on its own). `start` is called from
-    /// `applicationDidFinishLaunching` (main thread); the notification blocks run on `.main`
-    /// too, so all may hop into the MainActor with `assumeIsolated`.
+    /// Sets the initial state and subscribes to the notifications this needs: TIS for every
+    /// source change, app activation to resume a stalled recovery, plus screen lock/unlock to
+    /// enter the recovery path (§6.2 — the lock screen's password field runs outside any
+    /// third-party input method, and macOS never restores the pre-lock source on its own).
+    /// `start` is called from `applicationDidFinishLaunching` (main thread); the notification
+    /// blocks run on `.main` too, so all may hop into the MainActor with `assumeIsolated`.
     static func start() {
         MainActor.assumeIsolated {
             let sourceID = selectedSourceID()
@@ -58,6 +56,7 @@ enum ActiveInputSource {
             shouldKeepHALActive = sourceID == inputSourceID
             if shouldKeepHALActive {
                 fallbackSourceID = currentFallbackSourceID()
+                policy.halBecameCurrent(at: now())
             }
             apply(sourceID: sourceID)
         }
@@ -67,6 +66,15 @@ enum ActiveInputSource {
             queue: .main
         ) { _ in
             MainActor.assumeIsolated { sourceDidChange() }
+        }
+        NSWorkspace.shared.notificationCenter.addObserver(
+            forName: NSWorkspace.didActivateApplicationNotification,
+            object: nil,
+            queue: .main
+        ) { notification in
+            let appID = (notification.userInfo?[NSWorkspace.applicationUserInfoKey] as? NSRunningApplication)?
+                .bundleIdentifier
+            MainActor.assumeIsolated { focusDidMove(to: appID, via: "app-activated") }
         }
         DistributedNotificationCenter.default().addObserver(
             forName: Notification.Name("com.apple.screenIsLocked"),
@@ -95,6 +103,17 @@ enum ActiveInputSource {
         selectedSourceID() == inputSourceID
     }
 
+    /// Called from `activateServer`, which IMK runs on the main thread. While the system is
+    /// on the fallback layout, IMK still briefly activates HAL in each newly focused client,
+    /// which is the only focus signal when a menu bar popup hands focus back to the app
+    /// underneath it.
+    static func clientDidActivate(_ clientID: String) {
+        MainActor.assumeIsolated {
+            lastClient = (clientID, now())
+            focusDidMove(to: clientID, via: "client-activated")
+        }
+    }
+
     @MainActor
     private static func sourceDidChange() {
         let sourceID = selectedSourceID()
@@ -109,12 +128,20 @@ enum ActiveInputSource {
             }
             shouldKeepHALActive = true
             fallbackSourceID = currentFallbackSourceID()
+            policy.halBecameCurrent(at: now())
             cancelRecovery()
 
         case _ where isFallback(sourceID):
             guard shouldKeepHALActive, !isScreenLocked else { return }
-            let trigger = previousSourceID == inputSourceID ? "HAL-to-fallback" : "fallback-reverted"
-            scheduleRecovery(trigger: trigger, after: retryDelays[0])
+            let client = focusedClientID()
+            switch policy.fellBack(at: now(), client: client, secureInput: IsSecureEventInputEnabled()) {
+            case .recover:
+                let trigger = previousSourceID == inputSourceID ? "HAL-to-fallback" : "fallback-reverted"
+                scheduleRecovery(trigger: trigger, after: retryDelays[0])
+            case .awaitFocusChange(let rejectedBy):
+                cancelRecovery()
+                sourceLog.notice("sticky recovery waiting for focus to move rejectedBy=\(rejectedBy ?? "any", privacy: .public) client=\(client, privacy: .public) app=\(frontmostAppID(), privacy: .public)")
+            }
 
         default:
             // Any other source is an intentional choice. Sticky HAL only owns the system's
@@ -122,6 +149,18 @@ enum ActiveInputSource {
             shouldKeepHALActive = false
             cancelRecovery()
         }
+    }
+
+    @MainActor
+    private static func focusDidMove(to clientID: String?, via trigger: String) {
+        guard policy.isAwaitingFocusChange,
+              shouldKeepHALActive,
+              !isScreenLocked,
+              isFallback(selectedSourceID()),
+              policy.focusMoved(to: clientID, at: now())
+        else { return }
+        sourceLog.notice("sticky recovery resuming: focus moved via=\(trigger, privacy: .public) client=\(clientID ?? "unknown", privacy: .public)")
+        scheduleRecovery(trigger: "focus-moved", after: retryDelays[0])
     }
 
     @MainActor
@@ -149,21 +188,13 @@ enum ActiveInputSource {
         guard shouldRestore, isFallback(sourceID) else { return }
 
         shouldKeepHALActive = true
-        recentSelectionTimes.removeAll()
-        suppressedUntil = 0
+        policy.reset()
         scheduleRecovery(trigger: "screen-unlock", after: retryDelays[0])
     }
 
     @MainActor
     private static func scheduleRecovery(trigger: String, after delay: TimeInterval) {
         guard recoveryTimer == nil else { return }
-
-        let now = ProcessInfo.processInfo.systemUptime
-        guard now >= suppressedUntil else {
-            let remaining = Int((suppressedUntil - now).rounded(.up))
-            sourceLog.error("sticky recovery suppressed for another \(remaining)s trigger=\(trigger, privacy: .public) app=\(frontmostAppID(), privacy: .public)")
-            return
-        }
 
         if recoveryTrigger == nil {
             recoveryTrigger = trigger
@@ -208,7 +239,8 @@ enum ActiveInputSource {
             sourceLog.notice("sticky recovery resuming after secure input ended trigger=\(trigger, privacy: .public) app=\(frontmostAppID(), privacy: .public)")
         }
 
-        guard consumeSelectionBudget(trigger: trigger) else {
+        guard policy.consumeSelection(at: now()) else {
+            sourceLog.error("sticky recovery circuit breaker opened after \(StickyRecovery.maxSelectionsPerBurst) selections in \(Int(StickyRecovery.burstWindow))s, retrying on the first focus change after \(Int(StickyRecovery.cooldown))s trigger=\(trigger, privacy: .public) app=\(frontmostAppID(), privacy: .public)")
             cancelRecovery()
             return
         }
@@ -218,7 +250,7 @@ enum ActiveInputSource {
         let appID = frontmostAppID()
         guard let source = halInputSource() else {
             sourceLog.error("sticky recovery failed: HAL input source unavailable trigger=\(trigger, privacy: .public) app=\(appID, privacy: .public)")
-            enterCooldown()
+            policy.giveUp(at: now(), rejectedBy: nil)
             cancelRecovery()
             return
         }
@@ -230,37 +262,20 @@ enum ActiveInputSource {
 
         if status == noErr, selectedID == inputSourceID {
             sourceLog.notice("sticky recovery selected HAL attempt=\(attempt) trigger=\(trigger, privacy: .public) app=\(appID, privacy: .public)")
+            policy.halBecameCurrent(at: now())
             cancelRecovery()
             return
         }
 
         guard attempt < maxAttemptsPerRecovery else {
             sourceLog.error("sticky recovery failed after \(attempt) attempts status=\(status) selected=\(selectedID ?? "unknown", privacy: .public) trigger=\(trigger, privacy: .public) app=\(appID, privacy: .public)")
-            enterCooldown()
+            policy.giveUp(at: now(), rejectedBy: focusedClientID())
             cancelRecovery()
             return
         }
 
         sourceLog.info("sticky recovery retrying attempt=\(attempt) status=\(status) selected=\(selectedID ?? "unknown", privacy: .public) trigger=\(trigger, privacy: .public) app=\(appID, privacy: .public)")
         scheduleRecovery(trigger: trigger, after: retryDelays[attempt])
-    }
-
-    @MainActor
-    private static func consumeSelectionBudget(trigger: String) -> Bool {
-        let now = ProcessInfo.processInfo.systemUptime
-        recentSelectionTimes.removeAll { now - $0 > burstWindow }
-        guard recentSelectionTimes.count < maxSelectionsPerBurst else {
-            enterCooldown()
-            sourceLog.error("sticky recovery circuit breaker opened after \(maxSelectionsPerBurst) selections in \(Int(burstWindow))s trigger=\(trigger, privacy: .public) app=\(frontmostAppID(), privacy: .public)")
-            return false
-        }
-        recentSelectionTimes.append(now)
-        return true
-    }
-
-    @MainActor
-    private static func enterCooldown() {
-        suppressedUntil = ProcessInfo.processInfo.systemUptime + cooldown
     }
 
     @MainActor
@@ -275,6 +290,20 @@ enum ActiveInputSource {
     @MainActor
     private static func isFallback(_ sourceID: String?) -> Bool {
         sourceID != nil && sourceID == fallbackSourceID
+    }
+
+    /// The client HAL was just activated in, if that was moments ago; otherwise the
+    /// frontmost app.
+    @MainActor
+    private static func focusedClientID() -> String {
+        if let lastClient, now() - lastClient.at < StickyRecovery.bounceWindow {
+            return lastClient.id
+        }
+        return frontmostAppID()
+    }
+
+    private static func now() -> TimeInterval {
+        ProcessInfo.processInfo.systemUptime
     }
 
     private static func halInputSource() -> TISInputSource? {
