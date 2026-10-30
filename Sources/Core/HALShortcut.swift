@@ -14,7 +14,7 @@ enum HALShortcut: Equatable {
             self = .switchLanguage
         } else if key.keyCode == Self.space, chord == [.option, .shift] {
             self = .switchEnglishProfile
-        } else if key.keyCode == Self.tab, chord == .control {
+        } else if key.keyCode == Self.tab, chord == .option {
             self = .aiEdit
         } else {
             return nil

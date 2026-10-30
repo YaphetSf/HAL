@@ -234,8 +234,8 @@ final class InputController: IMKInputController {
         return nil
     }
 
-    /// ⌃Tab is also next-tab in browsers, terminals and editors, so HAL claims it only when
-    /// there is a selection for AI Editing to work on (D27).
+    /// ⌥Tab types a literal tab in some text fields, so HAL claims it only when there is a
+    /// selection for AI Editing to work on (D27).
     private static func hasSelection(client sender: Any!) -> Bool {
         guard let range = (sender as? IMKTextInput)?.selectedRange() else { return false }
         return range.location != NSNotFound && range.length > 0

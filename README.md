@@ -33,7 +33,7 @@ Control centre: `~/Applications/HAL.app`. Rime overrides: `~/Library/Application
 
 ## AI Editing
 
-Select text and press ⌃Tab to proofread or rephrase it through either Apple Intelligence or a model server you control.
+Select text and press ⌥Tab to proofread or rephrase it through either Apple Intelligence or a model server you control.
 A server on the same Mac and a remote server use the same OpenAI-compatible Chat Completions
 provider. HAL does not bundle, download, or manage third-party models.
 The complete Rephrase prompt is editable in HAL → AI Editing and is shared by both providers.

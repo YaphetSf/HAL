@@ -16,13 +16,13 @@ final class HALShortcutTests: XCTestCase {
         XCTAssertEqual(HALShortcut(press(space, [.option, .shift])), .switchEnglishProfile)
     }
 
-    func testControlTabOpensAIEdit() {
-        XCTAssertEqual(HALShortcut(press(tab, [.control])), .aiEdit)
+    func testOptionTabOpensAIEdit() {
+        XCTAssertEqual(HALShortcut(press(tab, [.option])), .aiEdit)
     }
 
     func testCapsLockStateDoesNotChangeTheChord() {
         XCTAssertEqual(HALShortcut(press(space, [.option, .capsLock])), .switchLanguage)
-        XCTAssertEqual(HALShortcut(press(tab, [.control, .capsLock])), .aiEdit)
+        XCTAssertEqual(HALShortcut(press(tab, [.option, .capsLock])), .aiEdit)
     }
 
     func testOtherChordsAreNotOurs() {
@@ -33,8 +33,9 @@ final class HALShortcutTests: XCTestCase {
         XCTAssertNil(HALShortcut(press(space, [.control, .option])))
         XCTAssertNil(HALShortcut(press(tab, [])))
         XCTAssertNil(HALShortcut(press(tab, [.shift])))
-        XCTAssertNil(HALShortcut(press(tab, [.control, .shift])))
-        XCTAssertNil(HALShortcut(press(tab, [.command, .control])))
+        XCTAssertNil(HALShortcut(press(tab, [.control])))
+        XCTAssertNil(HALShortcut(press(tab, [.option, .shift])))
+        XCTAssertNil(HALShortcut(press(tab, [.command, .option])))
         XCTAssertNil(HALShortcut(press(0x39, [.option])))
     }
 }

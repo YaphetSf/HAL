@@ -97,7 +97,7 @@ struct HomeView: View {
                 .foregroundStyle(.tertiary)
             shortcutRow(keys: ["⌥", "Space"], description: "Switch between Chinese and English")
             shortcutRow(keys: ["⇧", "⌥", "Space"], description: "Switch between EN and EN+")
-            shortcutRow(keys: ["⌃", "Tab"], description: "Edit selected text with AI")
+            shortcutRow(keys: ["⌥", "Tab"], description: "Edit selected text with AI")
             shortcutRow(keys: ["⇧", "Tab"], description: "Pick an EN+ suggestion")
             shortcutRow(keys: ["Tab"], description: "Accept the suggestion")
         }
