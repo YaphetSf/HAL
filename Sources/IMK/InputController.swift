@@ -60,8 +60,8 @@ final class InputController: IMKInputController {
         return Self.modeMenu
     }
 
-    /// Every HAL shortcut is an ordinary key-down (D11), so this is the whole event mask the
-    /// controller needs.
+    /// Caps Lock reaches HAL as F18 (D11), an ordinary key-down like any other, so this is
+    /// the whole event mask the controller needs.
     override func recognizedEvents(_ sender: Any!) -> Int {
         Int(NSEvent.EventTypeMask.keyDown.rawValue)
     }
@@ -116,21 +116,18 @@ final class InputController: IMKInputController {
             if let handled = handleAIEditEvent(event, client: sender) {
                 return handled
             }
-            let pressed = Self.keyEvent(from: event)
-            switch HALShortcut(pressed) {
-            case .switchLanguage:
-                return switchLanguage(client: sender)
-            case .switchEnglishProfile:
-                return switchEnglishProfile(client: sender)
-            case .aiEdit where Self.hasSelection(client: sender):
-                return beginAIEdit(client: sender)
-            case .aiEdit, nil:
-                break
+            if event.keyCode == UInt16(kVK_F18) {
+                if event.modifierFlags.contains(.option) {
+                    return beginAIEdit(client: sender)
+                }
+                return event.modifierFlags.contains(.shift)
+                    ? switchEnglishProfile(client: sender)
+                    : switchLanguage(client: sender)
             }
             if Self.isAsciiMode {
                 return handleEnglish(event, client: sender)
             }
-            guard let key = KeyEventMapper.map(pressed) else { return false }
+            guard let key = KeyEventMapper.map(Self.keyEvent(from: event)) else { return false }
             guard let state = consume(key, caret: Self.caretRect(client: sender)) else { return false }
             Self.draw(state, client: sender)
             return true
@@ -140,10 +137,10 @@ final class InputController: IMKInputController {
         }
     }
 
-    /// ⌥Space (D11). Switching inside HAL rather than switching the system input source is
-    /// what makes it instant: a real input-source switch takes 400 ms to 1.5 s to reach the
-    /// client, and every key typed in that window lands in the source being left. Nothing
-    /// here waits on anything.
+    /// Caps Lock, remapped to F18 before it reaches IMK (D11). Switching inside HAL rather
+    /// than switching the system input source is what makes it instant: a real input-source
+    /// switch takes 400 ms to 1.5 s to reach the client, and every key typed in that window
+    /// lands in the source being left. Nothing here waits on anything.
     private func switchLanguage(client sender: Any!) -> Bool {
         let caret = Self.caretRect(client: sender)
         Self.isAsciiMode.toggle()
@@ -157,10 +154,10 @@ final class InputController: IMKInputController {
         return true
     }
 
-    /// ⇧⌥Space is a second, explicit axis: it changes how English behaves without asking
+    /// Shift+Caps is a second, explicit axis: it changes how English behaves without asking
     /// HAL to guess whether the focused field contains chat or code (D22). From Chinese it
     /// goes straight to EN+, which keeps the common "I want assisted English now" gesture
-    /// to one chord; ordinary ⌥Space returns to Chinese afterwards.
+    /// to one chord; ordinary Caps returns to Chinese afterwards.
     private func switchEnglishProfile(client sender: Any!) -> Bool {
         let caret = Self.caretRect(client: sender)
         resetEnglishCompletion()
@@ -232,13 +229,6 @@ final class InputController: IMKInputController {
             }
         }
         return nil
-    }
-
-    /// ⌥Tab types a literal tab in some text fields, so HAL claims it only when there is a
-    /// selection for AI Editing to work on (D27).
-    private static func hasSelection(client sender: Any!) -> Bool {
-        guard let range = (sender as? IMKTextInput)?.selectedRange() else { return false }
-        return range.location != NSNotFound && range.length > 0
     }
 
     private func beginAIEdit(client sender: Any!) -> Bool {

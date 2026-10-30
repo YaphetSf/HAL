@@ -12,9 +12,9 @@
 ## Features
 
 - **Candidate window at the caret**, fully customisable input window.
-- **⌥Space switches Chinese and English** inside HAL, without handing the
-  keyboard back to another input source. Caps Lock stays Caps Lock.
-- **`EN+`** (⇧⌥Space) completes English words from the system
+- **Caps Lock switches Chinese and English** inside HAL, without handing the
+  keyboard back to another input source.
+- **`EN+`** (Shift + Caps Lock) completes English words from the system
   dictionary as you type; **`EN`** is a plain passthrough.
 - **Shift + ⌫ on a highlighted candidate** removes it for good; HAL → Weights lists
   every removed word and restores any of them.
@@ -33,7 +33,7 @@ Control centre: `~/Applications/HAL.app`. Rime overrides: `~/Library/Application
 
 ## AI Editing
 
-Select text and press ⌥Tab to proofread or rephrase it through either Apple Intelligence or a model server you control.
+HAL can proofread or rephrase selected text through either Apple Intelligence or a model server you control.
 A server on the same Mac and a remote server use the same OpenAI-compatible Chat Completions
 provider. HAL does not bundle, download, or manage third-party models.
 The complete Rephrase prompt is editable in HAL → AI Editing and is shared by both providers.

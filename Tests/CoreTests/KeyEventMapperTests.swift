@@ -57,8 +57,8 @@ final class KeyEventMapperTests: XCTestCase {
 
     func testModifierKeysThemselvesAreNotOurs() {
         // HAL only asks IMK for keyDown, so a bare modifier press never arrives; the mapper
-        // has nothing to say about one. Caps Lock in particular stays the system's own
-        // lock key (D11).
+        // has nothing to say about one. Caps Lock in particular belongs to the system's
+        // input source switch (D11).
         XCTAssertNil(KeyEventMapper.map(press(0x39)))
         XCTAssertNil(KeyEventMapper.map(press(0x38)))
         // Their state still reaches librime in the mask of ordinary keys.
