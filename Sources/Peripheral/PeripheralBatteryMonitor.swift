@@ -17,17 +17,17 @@ final class PeripheralBatteryMonitor {
     struct Device: Equatable {
         let name: String
         let battery: HIDPP.Battery
+
+        var isLow: Bool { !battery.isCharging && battery.percent <= PeripheralBatteryMonitor.lowPercent }
     }
 
     static let shared = PeripheralBatteryMonitor()
-    static let lowPercent = 15
+    nonisolated static let lowPercent = 15
     private static let refreshInterval: TimeInterval = 30 * 60
 
     private(set) var devices: [Device] = []
 
-    var hasLowBattery: Bool {
-        devices.contains { !$0.battery.isCharging && $0.battery.percent <= Self.lowPercent }
-    }
+    var hasLowBattery: Bool { devices.contains(where: \.isLow) }
 
     @ObservationIgnored private var manager: IOHIDManager?
     @ObservationIgnored private var receivers: [Receiver] = []

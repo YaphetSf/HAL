@@ -22,16 +22,13 @@ final class ModeState {
 /// HAL's own menu bar item. The system input menu can be switched off, and once it is, this
 /// is the only thing on screen that says which mode HAL is in.
 ///
-/// Clicking opens a menu rather than toggling mode directly (that stayed Caps Lock-only,
-/// D11) — the menu just shows which mode that is, paired device batteries (D30), and the door
-/// to the HAL app (D21).
+/// Clicking opens HAL's own drop-down (D31) rather than toggling mode directly (that stayed
+/// Caps Lock-only, D11).
 @MainActor
-final class ModeStatusItem: NSObject, NSMenuDelegate {
+final class ModeStatusItem: NSObject {
     static let shared = ModeStatusItem()
 
     private var item: NSStatusItem?
-    private let modeIndicator = NSMenuItem(title: "", action: nil, keyEquivalent: "")
-    private var batteryItems: [NSMenuItem] = []
 
     private override init() { super.init() }
 
@@ -52,68 +49,15 @@ final class ModeStatusItem: NSObject, NSMenuDelegate {
             hosting.trailingAnchor.constraint(equalTo: button.trailingAnchor),
         ])
 
-        let menu = NSMenu()
-        menu.delegate = self
-        modeIndicator.isEnabled = false
-        menu.addItem(modeIndicator)
-        menu.addItem(.separator())
-        let preferences = NSMenuItem(title: "Open HAL…", action: #selector(openPreferences), keyEquivalent: ",")
-        preferences.target = self
-        menu.addItem(preferences)
-        item.menu = menu
+        button.target = self
+        button.action = #selector(togglePanel)
+        // On press, like the system's own menu bar items.
+        button.sendAction(on: [.leftMouseDown, .rightMouseDown])
 
         self.item = item
     }
 
-    /// Refreshed right before the menu shows, since Caps Lock can change the mode at any
-    /// time while it's closed.
-    func menuWillOpen(_ menu: NSMenu) {
-        refreshModeIndicator()
-        refreshBatteries(in: menu)
-    }
-
-    /// One disabled row per paired Logitech device, between the mode and "Open HAL…" (D30).
-    private func refreshBatteries(in menu: NSMenu) {
-        batteryItems.forEach(menu.removeItem)
-        let devices = PeripheralBatteryMonitor.shared.devices
-        guard !devices.isEmpty else {
-            batteryItems = []
-            return
-        }
-        let rows = devices.map { device in
-            let charging = device.battery.isCharging ? " · charging" : ""
-            let row = NSMenuItem(title: "\(device.name)  \(device.battery.percent)%\(charging)",
-                                 action: nil, keyEquivalent: "")
-            row.isEnabled = false
-            return row
-        }
-        batteryItems = [.separator()] + rows
-        for (offset, row) in batteryItems.enumerated() {
-            menu.insertItem(row, at: menu.index(of: modeIndicator) + 1 + offset)
-        }
-    }
-
-    private func refreshModeIndicator() {
-        let state = ModeState.shared
-        guard state.isActive else {
-            modeIndicator.title = "Not the current input source — ⌃Space to switch back"
-            return
-        }
-        if !state.isAscii {
-            let next = state.englishProfile == .assist ? "EN+" : "EN"
-            modeIndicator.title = "中文 — Caps Lock switches to \(next)"
-        } else if state.englishProfile == .assist {
-            modeIndicator.title = "EN+ — ⇧Tab selects, Tab accepts; ⇧Caps Lock switches to EN"
-        } else {
-            modeIndicator.title = "EN — ⇧Caps Lock switches to EN+"
-        }
-    }
-
-    /// The HAL control center (D21) is a separate app; looked up by bundle id rather than a hardcoded
-    /// path, since where the user keeps it isn't HAL's business.
-    @objc private func openPreferences() {
-        guard let url = NSWorkspace.shared.urlForApplication(withBundleIdentifier: "com.hal.inputmethod.HALSettings")
-        else { return }
-        NSWorkspace.shared.openApplication(at: url, configuration: NSWorkspace.OpenConfiguration())
+    @objc private func togglePanel(_ sender: NSStatusBarButton) {
+        ModeStatusPanel.shared.toggle(below: sender)
     }
 }
