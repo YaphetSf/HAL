@@ -6,6 +6,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         ModeStatusItem.shared.install()
         AIEditPanel.shared.install()
         ActiveInputSource.start()
+        PeripheralBatteryMonitor.shared.start()
     }
 
     /// librime writes the user dictionary on the way out, so finalize rather than just exit.

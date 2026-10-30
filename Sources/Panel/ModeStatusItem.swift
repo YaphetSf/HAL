@@ -23,13 +23,15 @@ final class ModeState {
 /// is the only thing on screen that says which mode HAL is in.
 ///
 /// Clicking opens a menu rather than toggling mode directly (that stayed Caps Lock-only,
-/// D11) — the menu just shows which mode that is, plus the door to the HAL app (D21).
+/// D11) — the menu just shows which mode that is, paired device batteries (D30), and the door
+/// to the HAL app (D21).
 @MainActor
 final class ModeStatusItem: NSObject, NSMenuDelegate {
     static let shared = ModeStatusItem()
 
     private var item: NSStatusItem?
     private let modeIndicator = NSMenuItem(title: "", action: nil, keyEquivalent: "")
+    private var batteryItems: [NSMenuItem] = []
 
     private override init() { super.init() }
 
@@ -66,6 +68,32 @@ final class ModeStatusItem: NSObject, NSMenuDelegate {
     /// Refreshed right before the menu shows, since Caps Lock can change the mode at any
     /// time while it's closed.
     func menuWillOpen(_ menu: NSMenu) {
+        refreshModeIndicator()
+        refreshBatteries(in: menu)
+    }
+
+    /// One disabled row per paired Logitech device, between the mode and "Open HAL…" (D30).
+    private func refreshBatteries(in menu: NSMenu) {
+        batteryItems.forEach(menu.removeItem)
+        let devices = PeripheralBatteryMonitor.shared.devices
+        guard !devices.isEmpty else {
+            batteryItems = []
+            return
+        }
+        let rows = devices.map { device in
+            let charging = device.battery.isCharging ? " · charging" : ""
+            let row = NSMenuItem(title: "\(device.name)  \(device.battery.percent)%\(charging)",
+                                 action: nil, keyEquivalent: "")
+            row.isEnabled = false
+            return row
+        }
+        batteryItems = [.separator()] + rows
+        for (offset, row) in batteryItems.enumerated() {
+            menu.insertItem(row, at: menu.index(of: modeIndicator) + 1 + offset)
+        }
+    }
+
+    private func refreshModeIndicator() {
         let state = ModeState.shared
         guard state.isActive else {
             modeIndicator.title = "Not the current input source — ⌃Space to switch back"

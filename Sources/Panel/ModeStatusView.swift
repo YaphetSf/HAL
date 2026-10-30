@@ -11,10 +11,12 @@ struct ModeStatusView: View {
     static let width: CGFloat = 48
 
     private let state = ModeState.shared
+    private let peripherals = PeripheralBatteryMonitor.shared
 
     var body: some View {
         let isAscii = state.isAscii
         let isActive = state.isActive
+        let lowBattery = peripherals.hasLowBattery
         let label = isAscii ? (state.englishProfile == .assist ? "EN+" : "EN") : "中"
 
         HStack(spacing: 4) {
@@ -25,6 +27,14 @@ struct ModeStatusView: View {
                     .aspectRatio(contentMode: .fit)
                     .frame(width: 14, height: 14)
                     .saturation(isActive ? 1 : 0.25)
+                    .overlay(alignment: .topTrailing) {
+                        if lowBattery {
+                            Circle()
+                                .fill(Color.red)
+                                .frame(width: 5, height: 5)
+                                .offset(x: 2, y: -2)
+                        }
+                    }
             }
             Text(label)
                 .font(.system(size: 13, weight: .medium))
@@ -39,11 +49,11 @@ struct ModeStatusView: View {
         .animation(.snappy(duration: 0.22), value: state.englishProfile)
         .animation(.snappy(duration: 0.22), value: isActive)
         .accessibilityElement()
-        .accessibilityLabel(isActive
+        .accessibilityLabel((isActive
             ? (isAscii
                 ? (state.englishProfile == .assist ? "HAL, English Assist" : "HAL, English Direct")
                 : "HAL, Chinese")
-            : "HAL, not the current input source")
+            : "HAL, not the current input source") + (lowBattery ? ", low battery" : ""))
         .accessibilityAddTraits(.isButton)
     }
 }
