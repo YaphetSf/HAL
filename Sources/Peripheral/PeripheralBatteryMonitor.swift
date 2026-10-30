@@ -16,6 +16,7 @@ private let log = Logger(subsystem: "com.hal.inputmethod", category: "peripheral
 final class PeripheralBatteryMonitor {
     struct Device: Equatable {
         let name: String
+        let kind: HIDPP.DeviceKind
         let battery: HIDPP.Battery
 
         var isLow: Bool { !battery.isCharging && battery.percent <= PeripheralBatteryMonitor.lowPercent }
@@ -94,6 +95,7 @@ final class PeripheralBatteryMonitor {
         guard let receiver = receivers.first(where: { $0.key == key }) else { return }
         if receiver.consumeReply(report) { return }
         if let change = HIDPP.linkChange(in: report) {
+            receiver.paired[change.device, default: Paired()].kind = change.kind
             if change.isLinked {
                 Task { @MainActor in await self.query(change.device, on: receiver) }
             }
@@ -174,7 +176,7 @@ final class PeripheralBatteryMonitor {
     private func publish() {
         let current = receivers.flatMap { receiver in
             receiver.paired.compactMap { index, paired in
-                paired.battery.map { Device(name: paired.name ?? "Device \(index)", battery: $0) }
+                paired.battery.map { Device(name: paired.name ?? "Device \(index)", kind: paired.kind, battery: $0) }
             }
         }.sorted { $0.name < $1.name }
         if current != devices { devices = current }
@@ -183,6 +185,7 @@ final class PeripheralBatteryMonitor {
 
 private struct Paired {
     var name: String?
+    var kind: HIDPP.DeviceKind = .other
     var feature: (index: UInt8, kind: HIDPP.BatteryFeature)?
     var battery: HIDPP.Battery?
     var isQuerying = false

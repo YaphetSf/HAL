@@ -35,6 +35,21 @@ enum HIDPP {
         case error
     }
 
+    enum DeviceKind: Equatable {
+        case keyboard
+        case mouse
+        case other
+
+        /// The low nibble of a 0x41 notification's flags byte.
+        init(nibble: UInt8) {
+            switch nibble {
+            case 0x01, 0x03: self = .keyboard  // keyboard, numpad
+            case 0x02, 0x08: self = .mouse     // mouse, trackball
+            default: self = .other
+            }
+        }
+    }
+
     // MARK: Requests
 
     static func featureRequest(device: UInt8, featureIndex: UInt8, function: UInt8,
@@ -80,11 +95,11 @@ enum HIDPP {
     }
 
     /// The receiver's 0x41 notification: a paired device connected, or dropped its link.
-    static func linkChange(in report: [UInt8]) -> (device: UInt8, isLinked: Bool)? {
+    static func linkChange(in report: [UInt8]) -> (device: UInt8, isLinked: Bool, kind: DeviceKind)? {
         guard report.count >= 7, report[0] == shortReport, report[2] == 0x41,
               (1...6).contains(report[1])
         else { return nil }
-        return (report[1], report[4] & 0x40 == 0)
+        return (report[1], report[4] & 0x40 == 0, DeviceKind(nibble: report[4] & 0x0F))
     }
 
     /// The payload of a report `device` sent on its own on `featureIndex`.

@@ -124,6 +124,10 @@ struct ModeStatusPanelView: View {
 
         private func deviceRow(_ device: PeripheralBatteryMonitor.Device) -> some View {
             HStack(spacing: 8) {
+                Image(systemName: Self.symbol(for: device.kind))
+                    .font(.system(size: 12, weight: .medium))
+                    .foregroundStyle(.secondary)
+                    .frame(width: 20)
                 Text(device.name)
                     .font(.system(size: 12.5, weight: .medium))
                     .lineLimit(1)
@@ -143,6 +147,14 @@ struct ModeStatusPanelView: View {
             .accessibilityElement(children: .ignore)
             .accessibilityLabel("\(device.name), \(device.battery.percent) percent"
                                 + (device.battery.isCharging ? ", charging" : ""))
+        }
+
+        private static func symbol(for kind: HIDPP.DeviceKind) -> String {
+            switch kind {
+            case .keyboard: "keyboard"
+            case .mouse: "computermouse"
+            case .other: "dot.radiowaves.left.and.right"
+            }
         }
 
         private func gauge(_ device: PeripheralBatteryMonitor.Device) -> some View {

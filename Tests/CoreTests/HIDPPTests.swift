@@ -48,7 +48,9 @@ final class HIDPPTests: XCTestCase {
         let linked = HIDPP.linkChange(in: [0x10, 0x01, 0x41, 0x11, 0x31, 0x8E, 0x40])
         XCTAssertEqual(linked?.device, 1)
         XCTAssertEqual(linked?.isLinked, true)
+        XCTAssertEqual(linked?.kind, .keyboard)
         XCTAssertEqual(HIDPP.linkChange(in: [0x10, 0x01, 0x41, 0x11, 0x71, 0x8E, 0x40])?.isLinked, false)
+        XCTAssertEqual(HIDPP.linkChange(in: [0x10, 0x01, 0x41, 0x11, 0x32, 0x8A, 0x40])?.kind, .mouse)
         XCTAssertNil(HIDPP.linkChange(in: [0x10, 0xFF, 0x80, 0x02, 0x00, 0x00, 0x00]))
     }
 

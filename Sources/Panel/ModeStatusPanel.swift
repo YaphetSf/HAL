@@ -71,12 +71,20 @@ final class ModeStatusPanel {
         place(size: hosting.fittingSize)
         panel.orderFrontRegardless()
         button.highlight(true)
-        // Clicks in HAL's own windows (this card, the menu bar item) are local events and
-        // never reach a global monitor.
         outsideClickMonitor = NSEvent.addGlobalMonitorForEvents(
             matching: [.leftMouseDown, .rightMouseDown, .otherMouseDown]) { _ in
-            MainActor.assumeIsolated { ModeStatusPanel.shared.close() }
+            MainActor.assumeIsolated { ModeStatusPanel.shared.closeUnlessOnItem() }
         }
+    }
+
+    /// A click on the menu bar item reaches the global monitor as well as the item's action.
+    /// It belongs to `toggle`; closing here too made the action reopen the card at once.
+    private func closeUnlessOnItem() {
+        if let button, let itemWindow = button.window,
+           itemWindow.convertToScreen(button.convert(button.bounds, to: nil)).contains(NSEvent.mouseLocation) {
+            return
+        }
+        close()
     }
 
     /// Hangs the card from the menu bar item, kept on the item's screen. The view pads the
