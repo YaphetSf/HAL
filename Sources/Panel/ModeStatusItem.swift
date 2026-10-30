@@ -12,7 +12,7 @@ final class ModeState {
     var isAscii = false
     var englishProfile: EnglishProfile = .direct
     /// False when the system's current input source is something other than HAL — i.e. the
-    /// system kicked HAL out and Caps Lock no longer reaches us (D11). Starts true because
+    /// system kicked HAL out and ⌥Space no longer reaches us (D11). Starts true because
     /// the menu bar item only matters while HAL is meant to be in front.
     var isActive = true
 
@@ -22,7 +22,7 @@ final class ModeState {
 /// HAL's own menu bar item. The system input menu can be switched off, and once it is, this
 /// is the only thing on screen that says which mode HAL is in.
 ///
-/// Clicking opens a menu rather than toggling mode directly (that stayed Caps Lock-only,
+/// Clicking opens a menu rather than toggling mode directly (that stays on ⌥Space,
 /// D11) — the menu just shows which mode that is, plus the door to the HAL app (D21).
 @MainActor
 final class ModeStatusItem: NSObject, NSMenuDelegate {
@@ -63,7 +63,7 @@ final class ModeStatusItem: NSObject, NSMenuDelegate {
         self.item = item
     }
 
-    /// Refreshed right before the menu shows, since Caps Lock can change the mode at any
+    /// Refreshed right before the menu shows, since ⌥Space can change the mode at any
     /// time while it's closed.
     func menuWillOpen(_ menu: NSMenu) {
         let state = ModeState.shared
@@ -73,11 +73,11 @@ final class ModeStatusItem: NSObject, NSMenuDelegate {
         }
         if !state.isAscii {
             let next = state.englishProfile == .assist ? "EN+" : "EN"
-            modeIndicator.title = "中文 — Caps Lock switches to \(next)"
+            modeIndicator.title = "中文 — ⌥Space switches to \(next)"
         } else if state.englishProfile == .assist {
-            modeIndicator.title = "EN+ — ⇧Tab selects, Tab accepts; ⇧Caps Lock switches to EN"
+            modeIndicator.title = "EN+ — ⇧Tab selects, Tab accepts; ⇧⌥Space switches to EN"
         } else {
-            modeIndicator.title = "EN — ⇧Caps Lock switches to EN+"
+            modeIndicator.title = "EN — ⇧⌥Space switches to EN+"
         }
     }
 

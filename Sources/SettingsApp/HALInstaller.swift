@@ -321,9 +321,6 @@ enum HALSystemInstaller {
 
     static func uninstall(context: HALInstallationContext) throws {
         try HALCommand.run("/usr/bin/killall", arguments: ["HAL_input"], allowFailure: true)
-        try HALCommand.run("/usr/bin/hidutil", arguments: [
-            "property", "--set", #"{"UserKeyMapping":[]}"#
-        ], allowFailure: true)
         try HALCommand.run(launchServices, arguments: ["-u", context.installedInputURL.path],
                            allowFailure: true)
         try HALCommand.run(launchServices, arguments: ["-u", context.installedAppURL.path],
