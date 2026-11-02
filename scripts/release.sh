@@ -38,7 +38,7 @@ DIST_DIRECTORY="$ROOT/dist"
 LSREGISTER=/System/Library/Frameworks/CoreServices.framework/Frameworks/LaunchServices.framework/Support/lsregister
 
 NOTARY_PROFILE="${HAL_NOTARY_PROFILE:-notary}"
-NOTARY_KEYCHAIN="${HAL_NOTARY_KEYCHAIN:-$HOME/Library/Keychains/signing.keychain-db}"
+NOTARY_KEYCHAIN="${HAL_NOTARY_KEYCHAIN:-$HOME/.keys/signing.keychain-db}"
 [[ -f $NOTARY_KEYCHAIN ]] && security unlock-keychain -p "" "$NOTARY_KEYCHAIN"
 SKIP_NOTARIZE="${HAL_SKIP_NOTARIZE:-0}"
 
