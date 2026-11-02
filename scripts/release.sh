@@ -19,7 +19,7 @@
 #
 # Override:
 #   HAL_CODESIGN_IDENTITY="Developer ID Application: ..."
-#   HAL_NOTARY_PROFILE=<keychain-profile>     default: QRStudio
+#   HAL_NOTARY_PROFILE=<keychain-profile>     default: notary
 #   HAL_SKIP_NOTARIZE=1                       preview DMG, do not distribute
 set -euo pipefail
 
@@ -37,7 +37,9 @@ DMG_ROOT="$STAGE/dmg"
 DIST_DIRECTORY="$ROOT/dist"
 LSREGISTER=/System/Library/Frameworks/CoreServices.framework/Frameworks/LaunchServices.framework/Support/lsregister
 
-NOTARY_PROFILE="${HAL_NOTARY_PROFILE:-QRStudio}"
+NOTARY_PROFILE="${HAL_NOTARY_PROFILE:-notary}"
+NOTARY_KEYCHAIN="${HAL_NOTARY_KEYCHAIN:-$HOME/Library/Keychains/signing.keychain-db}"
+[[ -f $NOTARY_KEYCHAIN ]] && security unlock-keychain -p "" "$NOTARY_KEYCHAIN"
 SKIP_NOTARIZE="${HAL_SKIP_NOTARIZE:-0}"
 
 VERSION="$(awk -F'"' '/MARKETING_VERSION:/ {print $2; exit}' project.yml)"
@@ -66,7 +68,8 @@ if [ "$SKIP_NOTARIZE" != "1" ] && [ "$IDENTITY" = - ]; then
   exit 1
 fi
 if [ "$SKIP_NOTARIZE" != "1" ] \
-   && ! xcrun notarytool history --keychain-profile "$NOTARY_PROFILE" >/dev/null 2>&1; then
+   && ! xcrun notarytool history --keychain-profile "$NOTARY_PROFILE" \
+          --keychain "$NOTARY_KEYCHAIN" >/dev/null 2>&1; then
   echo "invalid notary profile: $NOTARY_PROFILE" >&2
   exit 1
 fi
@@ -163,7 +166,7 @@ if [ "$SKIP_NOTARIZE" != "1" ]; then
   echo "==> notarize $INPUT_NAME.app"
   ditto -c -k --keepParent --sequesterRsrc "$INPUT_APP" "$STAGE/$INPUT_NAME-notary.zip"
   xcrun notarytool submit "$STAGE/$INPUT_NAME-notary.zip" \
-    --keychain-profile "$NOTARY_PROFILE" --wait
+    --keychain-profile "$NOTARY_PROFILE" --keychain "$NOTARY_KEYCHAIN" --wait
   xcrun stapler staple "$INPUT_APP"
 fi
 
@@ -183,7 +186,7 @@ if [ "$SKIP_NOTARIZE" != "1" ]; then
   echo "==> notarize $APP_NAME.app"
   ditto -c -k --keepParent --sequesterRsrc "$HAL_APP" "$STAGE/$APP_NAME-notary.zip"
   xcrun notarytool submit "$STAGE/$APP_NAME-notary.zip" \
-    --keychain-profile "$NOTARY_PROFILE" --wait
+    --keychain-profile "$NOTARY_PROFILE" --keychain "$NOTARY_KEYCHAIN" --wait
   xcrun stapler staple "$HAL_APP"
 fi
 
@@ -244,7 +247,8 @@ fi
 echo "==> final DMG"
 build_dmg "$FINAL_DMG"
 codesign --force --timestamp --sign "$IDENTITY" "$FINAL_DMG"
-xcrun notarytool submit "$FINAL_DMG" --keychain-profile "$NOTARY_PROFILE" --wait
+xcrun notarytool submit "$FINAL_DMG" \
+  --keychain-profile "$NOTARY_PROFILE" --keychain "$NOTARY_KEYCHAIN" --wait
 xcrun stapler staple "$FINAL_DMG"
 xcrun stapler validate "$FINAL_DMG"
 spctl -a -vv -t open --context context:primary-signature "$FINAL_DMG"
