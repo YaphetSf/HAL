@@ -1,8 +1,8 @@
 import Foundation
 
 /// The words the user took out of the candidate list (D29). InputSession hides them on every
-/// page, and the patch writer hands them to librime as `translator/dictionary_exclude` so
-/// they stay out of sentences too.
+/// page, and the patch writer hands the multi-character ones to librime as
+/// `translator/dictionary_exclude` so they stay out of sentences too.
 ///
 /// Unlike Settings.json this file has two writers: the input method adds a word on Shift+⌫
 /// and the control center restores one. Both re-read the file right before writing, so

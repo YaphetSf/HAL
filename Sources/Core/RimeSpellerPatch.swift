@@ -46,9 +46,12 @@ enum RimeSpellerPatch {
             if pageSize != UserSettings.defaultCandidatePageSize {
                 lines.append("  \"menu/page_size\": \(pageSize)")
             }
-            if !removedWords.isEmpty {
+            // A one-character word can be the only entry under its code (rime-ice's A–Z, 给),
+            // and librime 1.17 crashes once dictionary_exclude empties that group (D29).
+            let excluded = removedWords.filter { $0.count > 1 }
+            if !excluded.isEmpty {
                 lines.append("  \"translator/dictionary_exclude\":")
-                lines += removedWords.map { "    - \($0)" }
+                lines += excluded.map { "    - \($0)" }
             }
             return lines
         }()

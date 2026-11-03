@@ -214,6 +214,38 @@ final class RimeEngineTests: XCTestCase {
         }
     }
 
+    /// D29: rime-ice's A–Z each sit alone under their code. With a removed "L" deployed as
+    /// `dictionary_exclude`, librime 1.17 emptied that group and crashed on Shift+L E D.
+    func testRemovedSingleLettersKeepLibrimeAlive() throws {
+        let letters = "ABCDEFGHIJKLMNOPQRSTUVWXYZ".map(String.init)
+        letters.forEach(RemovedWords.add)
+        defer { letters.forEach(RemovedWords.restore) }
+        RimeSpellerPatch.write(rules: [], asciiPhrases: [], removedWords: RemovedWords.load(),
+                               in: Self.userDirectory)
+        RimeRuntime.stop()
+        try? FileManager.default.removeItem(
+            at: Self.userDirectory.appendingPathComponent("build"))
+        RimeRuntime.start(sharedDataDir: Self.sharedDataDirectory,
+                          userDataDir: Self.userDirectory)
+
+        for word in ["LED", "DNA", "USB"] {
+            let engine = RimeEngine()
+            var state: EngineState?
+            for character in word {
+                state = engine.process(keysym: Int32(character.unicodeScalars.first!.value),
+                                       modifiers: 1)
+            }
+            // The last page is where every translation has been drained.
+            var pages = 0
+            while state?.page.hasNext == true, pages < 200 {
+                state = engine.process(keysym: 0xFF56, modifiers: 0)
+                pages += 1
+            }
+            XCTAssertEqual(state?.composition?.text.replacingOccurrences(of: " ", with: ""), word)
+            engine.clear()
+        }
+    }
+
     /// D29: a word picked once climbs to the front; deleting it makes librime forget that,
     /// and the page goes back to the dictionary's own order.
     func testDeleteCandidateForgetsALearnedWord() throws {

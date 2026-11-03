@@ -310,6 +310,17 @@ final class RimeSpellerPatchTests: XCTestCase {
             atPath: RimeSpellerPatch.schemaPatchURL(in: directory).path))
     }
 
+    func testOneCharacterRemovedWordsStayOutOfDictionaryExclude() throws {
+        RimeSpellerPatch.write(rules: [], asciiPhrases: [],
+                               removedWords: ["L", "原神", "给", "DC", "🙅‍♂️"], in: directory)
+        XCTAssertTrue(try writtenContent().contains(
+            "\"translator/dictionary_exclude\":\n    - 原神\n    - DC\n# HAL speller rules end"))
+
+        RimeSpellerPatch.write(rules: [], asciiPhrases: [], removedWords: ["L", "给"], in: directory)
+        XCTAssertFalse(FileManager.default.fileExists(
+            atPath: RimeSpellerPatch.schemaPatchURL(in: directory).path))
+    }
+
     func testPageSizeSurvivesRewriteAlongsideRules() throws {
         RimeSpellerPatch.write(rules: [SpellerRule(input: "din", match: "ding")],
                                asciiPhrases: ["e.g."], pageSize: 7, removedWords: [], in: directory)
