@@ -1,6 +1,7 @@
 import AppKit
 import Carbon
 import Foundation
+import IOKit
 import OSLog
 
 private let sourceLog = Logger(subsystem: "com.hal.inputmethod", category: "input-source")
@@ -227,15 +228,18 @@ enum ActiveInputSource {
         // ASCII-capable layout until it loses focus; selecting HAL there is reverted within
         // milliseconds and HAL receives no keys anyway. Poll without spending budget.
         if IsSecureEventInputEnabled() {
+            publishSecureInputHolder()
             if !isWaitingForSecureInput {
                 isWaitingForSecureInput = true
-                sourceLog.notice("sticky recovery waiting for secure input to end trigger=\(trigger, privacy: .public) app=\(frontmostAppID(), privacy: .public)")
+                let holder = ModeState.shared.secureInputHolder.map { "\($0.name)(\($0.pid))" } ?? "unknown"
+                sourceLog.notice("sticky recovery waiting for secure input to end holder=\(holder, privacy: .public) trigger=\(trigger, privacy: .public) app=\(frontmostAppID(), privacy: .public)")
             }
             scheduleRecovery(trigger: trigger, after: secureInputPollInterval)
             return
         }
         if isWaitingForSecureInput {
             isWaitingForSecureInput = false
+            clearSecureInputHolder()
             sourceLog.notice("sticky recovery resuming after secure input ended trigger=\(trigger, privacy: .public) app=\(frontmostAppID(), privacy: .public)")
         }
 
@@ -285,6 +289,36 @@ enum ActiveInputSource {
         recoveryAttempt = 0
         recoveryTrigger = nil
         isWaitingForSecureInput = false
+        clearSecureInputHolder()
+    }
+
+    /// Runs on every poll: the holder can change while HAL waits.
+    @MainActor
+    private static func publishSecureInputHolder() {
+        let pid = secureInputHolderPID()
+        guard pid != ModeState.shared.secureInputHolder?.pid else { return }
+        ModeState.shared.secureInputHolder = pid.map { pid in
+            let app = NSRunningApplication(processIdentifier: pid)
+            return SecureInputHolder(pid: pid, name: app?.localizedName ?? "PID \(pid)", icon: app?.icon)
+        }
+    }
+
+    @MainActor
+    private static func clearSecureInputHolder() {
+        guard ModeState.shared.secureInputHolder != nil else { return }
+        ModeState.shared.secureInputHolder = nil
+    }
+
+    /// WindowServer publishes the holder in this user's session entry on the IORegistry
+    /// root; there is no public API for it.
+    private static func secureInputHolderPID() -> pid_t? {
+        let root = IORegistryGetRootEntry(kIOMainPortDefault)
+        defer { IOObjectRelease(root) }
+        guard let users = IORegistryEntryCreateCFProperty(root, "IOConsoleUsers" as CFString, kCFAllocatorDefault, 0)?
+            .takeRetainedValue() as? [[String: Any]]
+        else { return nil }
+        let session = users.first { $0["kCGSSessionUserIDKey"] as? uid_t == getuid() }
+        return (session?["kCGSSessionSecureInputPID"] as? NSNumber)?.int32Value
     }
 
     @MainActor

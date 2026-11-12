@@ -62,6 +62,7 @@ struct ModeStatusPanelView: View {
             .animation(.snappy(duration: 0.22), value: mode.isAscii)
             .animation(.snappy(duration: 0.22), value: mode.englishProfile)
             .animation(.snappy(duration: 0.22), value: mode.isActive)
+            .animation(.snappy(duration: 0.22), value: mode.secureInputHolder?.pid)
             .animation(.snappy(duration: 0.22), value: peripherals.devices)
             .onAppear {
                 withAnimation(.spring(response: 0.26, dampingFraction: 0.82)) { appear = 1 }
@@ -78,6 +79,27 @@ struct ModeStatusPanelView: View {
                     modeTile("EN", isCurrent: mode.isAscii && mode.englishProfile == .direct)
                     modeTile("EN+", isCurrent: mode.isAscii && mode.englishProfile == .assist)
                 }
+            } else if let holder = mode.secureInputHolder {
+                HStack(spacing: 6) {
+                    Text("Secure input")
+                        .font(.system(size: 12, weight: .medium))
+                        .foregroundStyle(.secondary)
+                    Spacer(minLength: 8)
+                    if let icon = holder.icon {
+                        Image(nsImage: icon)
+                            .resizable()
+                            .interpolation(.high)
+                            .frame(width: 16, height: 16)
+                    }
+                    Text(holder.name)
+                        .font(.system(size: 12.5, weight: .medium))
+                        .lineLimit(1)
+                        .truncationMode(.tail)
+                }
+                .padding(.horizontal, 6)
+                .frame(height: 36)
+                .accessibilityElement(children: .ignore)
+                .accessibilityLabel("Secure input held by \(holder.name)")
             } else {
                 HStack(spacing: 8) {
                     Text("Not the current input source")

@@ -15,8 +15,16 @@ final class ModeState {
     /// system kicked HAL out and Caps Lock no longer reaches us (D11). Starts true because
     /// the menu bar item only matters while HAL is meant to be in front.
     var isActive = true
+    /// Set while secure event input keeps HAL out (D31).
+    var secureInputHolder: SecureInputHolder?
 
     private init() {}
+}
+
+struct SecureInputHolder {
+    let pid: pid_t
+    let name: String
+    let icon: NSImage?
 }
 
 /// HAL's own menu bar item. The system input menu can be switched off, and once it is, this
