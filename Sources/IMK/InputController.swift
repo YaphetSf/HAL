@@ -113,6 +113,7 @@ final class InputController: IMKInputController {
         case .keyDown:
             // `characters` is only readable on key events; other event types raise (D13).
             log.info("keyDown code=\(event.keyCode) chars=\(event.characters ?? "", privacy: .public) mods=\(event.modifierFlags.rawValue)")
+            ActiveInputSource.keyDidArrive()
             if let handled = handleAIEditEvent(event, client: sender) {
                 return handled
             }

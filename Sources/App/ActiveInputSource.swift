@@ -115,6 +115,25 @@ enum ActiveInputSource {
         }
     }
 
+    /// A key only reaches HAL while it is the current source, so one arriving while the menu
+    /// bar says otherwise means the source changed without its TIS notification.
+    static func keyDidArrive() {
+        MainActor.assumeIsolated {
+            guard !ModeState.shared.isActive else { return }
+            syncSource(via: "key")
+        }
+    }
+
+    /// TIS does not always deliver its change notification, so the recovery poll and
+    /// `keyDidArrive` re-read the source and take the notification's path.
+    @MainActor
+    private static func syncSource(via trigger: String) {
+        let sourceID = selectedSourceID()
+        guard sourceID != lastSourceID else { return }
+        sourceLog.notice("input source changed with no TIS notification so far selected=\(sourceID ?? "unknown", privacy: .public) via=\(trigger, privacy: .public)")
+        sourceDidChange()
+    }
+
     @MainActor
     private static func sourceDidChange() {
         let sourceID = selectedSourceID()
@@ -217,9 +236,13 @@ enum ActiveInputSource {
     private static func performRecoveryAttempt() {
         guard let trigger = recoveryTrigger,
               shouldKeepHALActive,
-              !isScreenLocked,
-              isFallback(selectedSourceID())
+              !isScreenLocked
         else {
+            cancelRecovery()
+            return
+        }
+        guard isFallback(selectedSourceID()) else {
+            syncSource(via: "poll")
             cancelRecovery()
             return
         }
